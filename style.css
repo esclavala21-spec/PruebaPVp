@@ -1,0 +1,5 @@
+body { background-color: #222; color: white; font-family: sans-serif; text-align: center; }
+#pantalla-combate { display: flex; justify-content: space-around; margin-top: 50px; flex-wrap: wrap; }
+.sprite { width: 150px; height: 150px; border: 2px solid gold; }
+#controles { margin-top: 30px; width: 100%; }
+button { padding: 10px 20px; font-size: 1.2rem; cursor: pointer; }
