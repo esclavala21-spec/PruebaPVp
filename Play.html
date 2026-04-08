@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mi RPG de Turnos</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="pantalla-combate">
+        <div class="personaje" id="jugador">
+            <h2 id="nombre-jugador">Protagonista 1</h2>
+            <img src="img/heroe.png" alt="Jugador" class="sprite">
+            <p>Vida: <span id="vida-jugador">100</span></p>
+        </div>
+
+        <div class="personaje" id="enemigo">
+            <h2>Enemigo</h2>
+            <img src="img/enemigo.png" alt="Enemigo" class="sprite">
+            <p>Vida: <span id="vida-enemigo">100</span></p>
+        </div>
+
+        <div id="controles">
+            <button onclick="ejecutarTurno()">Atacar</button>
+            <p id="mensaje"></p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
