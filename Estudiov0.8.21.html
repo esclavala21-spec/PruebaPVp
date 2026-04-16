@@ -1,0 +1,2818 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nota Pro - Studio v0.8.21</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --ui-bg: rgba(30, 33, 36, 0.98);
+            /* Cambiado a Celeste */
+            --accent: #00a8ff; 
+            --danger: #ed4245;
+            --text: #ffffff;
+        }
+
+        body {
+            margin: 0; padding: 0; background-color: var(--bg-color);
+            color: var(--text); font-family: 'Segoe UI', sans-serif;
+            overflow: hidden; height: 100vh; width: 100vw;
+            -webkit-touch-callout: none; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #home-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color); z-index: 1000; display: flex;
+            flex-direction: column; padding: 20px; box-sizing: border-box;
+        }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+        .gallery { display: flex; gap: 15px; flex-wrap: wrap; }
+        .card { width: 150px; height: 200px; background: #2f3136; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border: 2px dashed #555; }
+        .card:hover { border-color: var(--accent); }
+
+        .modal {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: #23272a; padding: 20px; border-radius: 10px; z-index: 1100; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        #new-canvas-modal { width: 300px; }
+        
+        #custom-brush-modal { width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto; }
+        .custom-brush-layout { display: flex; flex-direction: column; gap: 15px; align-items: center; }
+        .custom-brush-left, .custom-brush-right { display: flex; flex-direction: column; width: 100%; }
+
+        #brush-settings-modal { width: 300px; }
+
+        #export-modal { width: 80%; max-width: 400px; text-align: center; }
+        #crop-modal { width: 90%; max-width: 400px; text-align: center; }
+        #timelapse-modal { width: 300px; text-align: center; }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1050; }
+        .input-group { margin-bottom: 15px; display: flex; flex-direction: column; gap: 5px; text-align: left; }
+        .input-group input, .input-group select { padding: 8px; border-radius: 4px; border: none; background: #1e1e1e; color: white; }
+
+        #editor-screen { display: none; width: 100%; height: 100%; flex-direction: column; position: relative;}
+        
+        #toolbar-container {
+            position: absolute; top: 0; left: 0; width: 100%; z-index: 100;
+            display: flex; flex-direction: column; transition: transform 0.3s ease;
+        }
+
+        #toolbar {
+            background-color: var(--ui-bg); padding: 8px; display: flex; flex-wrap: wrap;
+            gap: 10px; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            max-height: 200px; overflow-y: auto;
+        }
+        .toolbar-hidden { transform: translateY(-100%); }
+
+        #btnToggleToolbarTop {
+            position: absolute; bottom: -30px; left: 10px; background: var(--ui-bg);
+            border-radius: 0 0 5px 5px; padding: 5px 15px; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); border: none; color: white; font-size: 14px;
+        }
+
+        .tool-group { display: flex; align-items: center; gap: 8px; border-right: 1px solid #444; padding-right: 10px; }
+        
+        button, select, label.btn {
+            background-color: var(--accent); color: white; border: none; padding: 8px 12px;
+            border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 13px; text-align: center;
+            transition: background-color 0.2s;
+        }
+        button.active { background-color: #fff; color: var(--accent); }
+
+        #viewport { flex: 1; position: relative; overflow: hidden; background: #1a1a1a; touch-action: none; width: 100%; height: 100%; }
+        #canvas-stack { position: absolute; transform-origin: 0 0; }
+        canvas { position: absolute; top: 0; left: 0; touch-action: none; }
+        .hidden-layer { display: none !important; }
+
+        #layer-panel {
+            position: absolute; right: 10px; top: 70px; width: 220px; background: var(--ui-bg);
+            border-radius: 8px; padding: 10px; z-index: 90; max-height: 60vh; overflow-y: auto;
+        }
+        .layer-item {
+            display: flex; flex-direction: column; padding: 8px; margin-bottom: 5px;
+            background: #2f3136; border-radius: 4px; font-size: 13px;
+        }
+        .layer-item.active { border: 2px solid var(--accent); background: #3e4147; }
+        .layer-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .layer-name { flex-grow: 1; cursor: pointer; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px; }
+        .layer-controls button { padding: 4px 6px; font-size: 13px; background: #444; margin-left: 3px; }
+        input[type="range"] { width: 100%; margin-top: 5px; }
+
+        #btnToggleUI {
+            position: fixed; bottom: 20px; right: 20px; width: 50px; height: 50px;
+            border-radius: 50%; background-color: var(--accent); z-index: 200; font-size: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .color-palette-container { display: flex; flex-direction: column; gap: 5px; width: 160px; }
+        .color-row { display: flex; align-items: center; gap: 5px; }
+        
+        #savedColors, #savedBrushes { 
+            display: flex; gap: 8px; overflow-x: auto; padding: 5px 2px;
+            scrollbar-width: none;
+        }
+        #savedColors::-webkit-scrollbar, #savedBrushes::-webkit-scrollbar { display: none; }
+        
+        .color-swatch { 
+            width: 25px; height: 25px; border-radius: 50%; cursor: pointer; 
+            border: 2px solid #555; position: relative; flex-shrink: 0;
+        }
+        .color-swatch.active-color { border-color: white; transform: scale(1.1); }
+        
+        .brush-swatch { 
+            width: 30px; height: 30px; background-color: white; border-radius: 4px; cursor: pointer; 
+            border: 2px solid #555; position: relative; flex-shrink: 0;
+            background-size: contain; background-repeat: no-repeat; background-position: center;
+        }
+        .brush-swatch.active-brush { border-color: var(--accent); transform: scale(1.1); }
+
+        .delete-color-btn, .delete-brush-btn {
+            position: absolute; top: -5px; right: -5px;
+            background: var(--danger); color: white; width: 14px; height: 14px;
+            font-size: 9px; display: flex; align-items: center; justify-content: center;
+            border-radius: 50%; cursor: pointer; border: none; padding: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        #brush-maker { 
+            background: white; border: 2px solid var(--accent); 
+            border-radius: 4px; cursor: crosshair; margin: 0 auto; 
+            touch-action: none; display: block; image-rendering: pixelated;
+        }
+
+        #color-loupe {
+            display: none; position: fixed; width: 60px; height: 60px;
+            border-radius: 50%; border: 4px solid #fff;
+            pointer-events: none; z-index: 10000;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.8), inset 0 0 8px rgba(0,0,0,0.5);
+            transform: translate(-50%, -140%);
+        }
+
+        #export-image {
+            -webkit-touch-callout: default;
+            user-select: auto;
+            -webkit-user-select: auto;
+        }
+
+        .crop-controls { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+        .crop-row { display: flex; align-items: center; gap: 10px; }
+        .crop-row label { width: 60px; font-size: 12px; text-align: right; }
+
+        .advanced-tools-container {
+            display: flex; flex-direction: column; gap: 5px;
+        }
+        .advanced-tools-row {
+            display: flex; gap: 5px; background: #1e1e1e; padding: 4px; border-radius: 5px; justify-content: center; align-items: center;
+        }
+        .advanced-tools-row button {
+            padding: 4px 8px; font-size: 14px; background: #2f3136; color: white; border: 1px solid #444; border-radius: 4px;
+        }
+        .advanced-tools-row button.active-tool { background: var(--accent); border-color: white; }
+
+        .brush-size-control {
+            display: flex; align-items: center; gap: 8px; background: #1e1e1e;
+            padding: 4px 10px; border-radius: 5px;
+        }
+        .brush-size-val {
+            font-size: 14px; font-weight: bold; width: 24px; text-align: center; color: var(--accent);
+        }
+
+        #paste-box {
+            position: absolute;
+            border: 2px dashed var(--accent);
+            z-index: 10000;
+            touch-action: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            background-color: rgba(255, 255, 255, 0.1);
+            transform-origin: center center;
+        }
+        .paste-handle {
+            position: absolute;
+            right: -24px; bottom: -24px; 
+            width: 48px; height: 48px; 
+            background: var(--accent);
+            border: 4px solid white;
+            border-radius: 50%;
+            cursor: nwse-resize;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.8);
+        }
+        .rotate-handle {
+            position: absolute;
+            left: 50%; top: -45px; 
+            transform: translateX(-50%);
+            width: 36px; height: 36px;
+            background: #f1c40f; 
+            border: 3px solid white; 
+            border-radius: 50%;
+            cursor: grab; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.8);
+        }
+        .paste-actions {
+            position: absolute;
+            top: -65px; right: 0;
+            display: flex; gap: 10px;
+        }
+        .paste-actions button {
+            padding: 10px 18px; font-size: 22px; border-radius: 8px; border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.8);
+        }
+
+        /* --- ANIMACIÓN PRO --- */
+        #timeline-container {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 90px;
+            background: var(--ui-bg); z-index: 100; display: flex; flex-direction: column;
+            border-top: 2px solid #333; box-shadow: 0 -4px 10px rgba(0,0,0,0.5);
+        }
+        #timeline-controls { 
+            display: flex; gap: 10px; padding: 8px 10px; border-bottom: 1px solid #444; align-items:center; overflow-x: auto; scrollbar-width: none;
+        }
+        #timeline-controls::-webkit-scrollbar { display: none; }
+        #timeline-frames { 
+            display: flex; gap: 8px; padding: 10px; overflow-x: auto; flex:1; align-items:center;
+            scrollbar-width: thin;
+        }
+        .frame-box {
+            width: 45px; height: 45px; background: #1a1a1a; border: 2px solid #444;
+            border-radius: 6px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-weight: bold; font-size: 16px; flex-shrink: 0;
+            color: #aaa; transition: all 0.2s;
+        }
+        .frame-box:hover { border-color: #888; }
+        .frame-box.active-frame { border-color: var(--accent); background: #2f3136; color: white; transform: scale(1.1); box-shadow: 0 0 10px rgba(0,168,255,0.4); }
+        
+        #animProjectName {
+            padding: 5px 8px; background: #2f3136; color: white;
+            border: 1px solid #555; border-radius: 4px; font-size: 12px;
+            width: 120px; font-weight: bold;
+        }
+
+        #playback-canvas { pointer-events: none; z-index: 9999; display: none; }
+        #onion-canvas { pointer-events: none; z-index: 10; opacity: 0.8; }
+    </style>
+</head>
+<body>
+
+    <div id="home-screen">
+        <div class="header">
+            <h2>🎨 Estudio v0.8.21</h2>
+            <button onclick="toggleFullScreen()" style="font-size: 14px; padding: 6px 15px; background: #2f3136; border: 1px solid #555;">🔲 Pantalla Completa</button>
+        </div>
+        <div class="gallery">
+            <div class="card" onclick="openModal()">
+                <span style="font-size: 30px;">+</span><span>Nuevo Lienzo</span>
+            </div>
+      <div style="margin-top: auto; text-align: center; opacity: 0.6; font-size: 14px; padding-bottom: 10px;">
+    Desarrollado con ❤️ por <strong>[Tu Nombre o Marca]</strong> — © 2026 Nota Pro Studio
+</div>
+
+    </div>
+
+    <div class="modal-overlay" id="modal-overlay"></div>
+    
+    <div id="new-canvas-modal" class="modal">
+        <h3>Crear Lienzo</h3>
+        <div class="input-group">
+            <label>Tipo de Proyecto</label>
+            <select id="projectMode" onchange="toggleProjectLimits()">
+                <option value="illustration">🖼️ Ilustración</option>
+                <option value="animation">🎞️ Animación Pro</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label>Resolución</label>
+            <select id="canvasPreset" onchange="applyPreset()">
+                <option value="custom">Personalizado</option>
+                <option value="1080x1920">Pantalla Móvil (1080x1920)</option>
+                <option value="2000x2000" selected>Cuadrado HD (2000x2000)</option>
+            </select>
+        </div>
+        <div style="display: flex; gap: 1px;">
+            <div class="input-group" style="flex: 1;"><label>Ancho</label><input type="number" id="canvasW" value="2000" oninput="updateCanvasPreview()"></div>
+            <div class="input-group" style="flex: 1;"><label>Alto</label><input type="number" id="canvasH" value="2000" oninput="updateCanvasPreview()"></div>
+        </div>
+
+        <div style="margin-bottom: 15px; text-align: center;">
+            <p style="font-size: 12px; color: #aaa; margin: 0 0 5px 0;">Previsualización</p>
+            <div id="preview-container" style="width: 100%; height: 120px; background: #1e1e1e; border-radius: 4px; display: flex; align-items: center; justify-content: center; border: 1px solid #333;">
+                <div id="preview-box" style="background: white; width: 100px; height: 100px; box-shadow: 0 2px 5px rgba(0,0,0,0.5);"></div>
+            </div>
+        </div>
+
+        <button onclick="startEditor()" style="width: 100%;">Crear</button>
+        <button onclick="closeModal()" style="width: 100%; margin-top: 5px; background: #444;">Cancelar</button>
+    </div>
+
+        <div id="brush-settings-modal" class="modal">
+        <h3 style="margin-top: 0; text-align: center;">🎛️ Ajustes del Pincel</h3>
+        
+        <div style="background: #ffffff; border-radius: 8px; margin-bottom: 15px; border: 2px solid #555; padding: 5px;">
+            <canvas id="brush-preview" width="280" height="80" style="width: 100%; display: block;"></canvas>
+        </div>
+
+        <div style="max-height: 45vh; overflow-y: auto; padding-right: 5px;">
+            <div class="input-group">
+                <label style="font-size: 13px;">Comportamiento Base</label>
+                <select id="bsBase" onchange="updateBrushPreviewUI()">
+                    <option value="lapiz">✏️ Normal (Lápiz)</option>
+                    <option value="delineado">🖋️ Delineado (Filo suave)</option>
+                    <option value="marcador">🖍️ Transparente (Marcador)</option>
+                    <option value="pincel">🖌️ Difuminado (Pincel)</option>
+                    <option value="aerografo">💨 Aerógrafo</option>
+                    <option value="neon">✨ Brillante (Neón)</option>
+                    <option value="acuarela">💧 Acuarela</option>
+                    <option value="resaltador">🟨 Resaltador</option>
+                </select>
+            </div>
+            
+            <label style="font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 5px;">
+                Tamaño <span id="bsSizeVal" style="color: var(--accent); font-weight: bold;">5</span>
+            </label>
+            <input type="range" id="bsSize" min="1" max="100" value="5" oninput="updateBrushPreviewUI()" style="margin-bottom: 15px; width: 100%;">
+
+            <label style="font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 5px;">
+                Opacidad <span id="bsOpacityVal" style="color: var(--accent); font-weight: bold;">100%</span>
+            </label>
+            <input type="range" id="bsOpacity" min="1" max="100" value="100" oninput="updateBrushPreviewUI()" style="margin-bottom: 15px; width: 100%;">
+
+            <label style="font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 5px;">
+                Dureza (Borde) <span id="bsHardnessVal" style="color: var(--accent); font-weight: bold;">100%</span>
+            </label>
+            <input type="range" id="bsHardness" min="0" max="100" value="100" oninput="updateBrushPreviewUI()" style="margin-bottom: 15px; width: 100%;">
+
+            <label style="font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 5px;">
+                Forma de Punta <span id="bsShapeVal" style="color: var(--accent); font-weight: bold;">100%</span>
+            </label>
+            <input type="range" id="bsShape" min="10" max="100" value="100" oninput="updateBrushPreviewUI()" style="margin-bottom: 15px; width: 100%;">
+
+            <label style="font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 5px;">
+                Espaciado <span id="bsSpacingVal" style="color: var(--accent); font-weight: bold;">35%</span>
+            </label>
+            <input type="range" id="bsSpacing" min="1" max="150" value="35" oninput="updateBrushPreviewUI()" style="margin-bottom: 20px; width: 100%;">
+        </div>
+        
+        <button onclick="saveCurrentAsNewCustomBrush()" style="width: 100%; background: #43b581; margin-bottom: 10px; margin-top: 10px;">💾 Guardar Pincel Modificado</button>
+        <button onclick="closeBrushSettingsModal()" style="width: 100%; background: #444;">Volver al Dibujo</button>
+    </div>
+
+
+    <div id="timelapse-modal" class="modal">
+        <h3>🎥 Exportar Time-Lapse</h3>
+        <p style="font-size: 13px; color: #ccc;">Tu dibujo ha sido grabado paso a paso.</p>
+        <p id="tl-frames-count" style="font-weight:bold; color:var(--accent);">0 trazos grabados</p>
+        <div class="input-group" id="tl-name-group" style="display:none; margin-bottom: 10px;">
+            <input type="text" id="videoProjectName" value="Mi_Timelapse" placeholder="Nombre del video" style="text-align: center; font-weight: bold;">
+        </div>
+        <button id="btnRenderVideo" onclick="renderTimelapseVideo()" style="width: 100%; background: #43b581; margin-bottom:10px;">Procesar Video (.webm)</button>
+        <div id="tl-download-actions" style="display: none; gap: 10px; margin-bottom: 10px;">
+            <button id="btnDownloadVideo" onclick="downloadTimelapse()" style="flex: 1; background: #43b581; color: white;">⬇️ Descargar</button>
+            <button id="btnShareVideo" onclick="shareTimelapse()" style="flex: 1; background: var(--accent); color: white;">📤 Compartir</button>
+        </div>
+        <button onclick="closeModalById('timelapse-modal')" style="width: 100%; background: #444;">Volver</button>
+    </div>
+
+    <div id="custom-brush-modal" class="modal">
+        <h3 style="margin-top: 0; text-align: center;">Taller de Pinceles</h3>
+        <div class="custom-brush-layout">
+            <div class="custom-brush-left">
+                <p style="font-size: 13px; font-weight: bold; margin: 0 0 5px 0;">1. Lienzo de la punta</p>
+                <select id="cbSizePreset" onchange="changeBrushMakerSize()" style="width: 100%; padding: 8px; border-radius: 4px; background: #1e1e1e; color: white; border: none; margin-bottom: 10px;">
+                    <option value="32">Mini (32x32)</option>
+                    <option value="64">Pequeño (64x64)</option>
+                    <option value="160" selected>Normal (160x160)</option>
+                    <option value="256">Pro HD (256x256)</option>
+                </select>
+                <div style="background: #1a1a1a; padding: 10px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: center;">
+                    <canvas id="brush-maker" width="160" height="160"></canvas>
+                </div>
+                <button onclick="clearCustomBrush()" style="background:#444; width: 100%; padding: 8px;">Limpiar Punta</button>
+            </div>
+            <div class="custom-brush-right">
+                <p style="font-size: 13px; font-weight: bold; margin: 0 0 5px 0;">2. Configuración Pro</p>
+                <select id="customBrushBase" style="width: 100%; padding: 8px; border-radius: 4px; background: #1e1e1e; color: white; border: none; margin-bottom: 15px;">
+                    <option value="lapiz">✏️ Normal (Lápiz)</option>
+                    <option value="delineado">🖋️ Delineado (Filo suave)</option>
+                    <option value="marcador">🖍️ Transparente (Marcador)</option>
+                    <option value="pincel">🖌️ Difuminado (Pincel)</option>
+                    <option value="aerografo">💨 Aerógrafo</option>
+                    <option value="neon">✨ Brillante (Neón)</option>
+                    <option value="acuarela">💧 Acuarela</option>
+                    <option value="resaltador">🟨 Resaltador</option>
+                </select>
+                <label style="font-size: 12px; display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    Separación (Espaciado) <span id="cbSpacingVal">35%</span>
+                </label>
+                <input type="range" id="cbSpacing" min="1" max="150" value="35" oninput="document.getElementById('cbSpacingVal').innerText = this.value + '%'" style="margin-bottom: 15px;">
+                <button onclick="saveCustomBrush()" style="width: 100%; background: #43b581; margin-bottom: 15px;">+ Guardar Pincel</button>
+                <div style="background: #1e1e1e; border-radius: 4px; padding: 8px;">
+                    <p style="font-size: 12px; color: #aaa; margin: 0 0 5px 0;">Mis Pinceles Creados</p>
+                    <div id="savedBrushes" style="min-height: 40px;"></div>
+                </div>
+                <button onclick="closeCustomBrushModal()" style="width: 100%; margin-top: 15px; background: #2f3136;">Volver al Dibujo</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="crop-modal" class="modal">
+        <h3>Recortar Lienzo</h3>
+        <p style="font-size: 12px; color: #ccc;">Ajusta los bordes moviendo los controles.</p>
+        <div id="crop-preview-container" style="position:relative; width: 250px; height: 250px; background: #111; margin: 0 auto; display:flex; align-items:center; justify-content:center; border-radius: 8px; border: 1px solid #333;">
+            <canvas id="crop-preview-canvas" style="max-width:100%; max-height:100%; background: white;"></canvas>
+            <div id="crop-overlay" style="position:absolute; box-sizing: border-box; border: 3px solid var(--accent); background: rgba(0,168,255,0.3); pointer-events:none;"></div>
+        </div>
+        <div class="crop-controls">
+            <div class="crop-row"><label>Arriba</label><input type="range" id="cropTop" min="0" max="90" value="0" oninput="drawCropOverlay()"></div>
+            <div class="crop-row"><label>Abajo</label><input type="range" id="cropBottom" min="0" max="90" value="0" oninput="drawCropOverlay()"></div>
+            <div class="crop-row"><label>Izquierda</label><input type="range" id="cropLeft" min="0" max="90" value="0" oninput="drawCropOverlay()"></div>
+            <div class="crop-row"><label>Derecha</label><input type="range" id="cropRight" min="0" max="90" value="0" oninput="drawCropOverlay()"></div>
+        </div>
+        <button onclick="applyCrop()" style="width: 100%; margin-top: 15px; background: #43b581;">Aplicar Recorte</button>
+        <button onclick="closeCropModal()" style="width: 100%; margin-top: 5px; background: #444;">Cancelar</button>
+    </div>
+
+    <div id="export-modal" class="modal">
+        <h3>Guardar Dibujo</h3>
+        <p style="font-size: 13px; color: #ccc;">Ponle nombre a tu obra y descárgala sin perder la pantalla completa.</p>
+        <div class="input-group" style="margin-bottom: 10px;">
+            <input type="text" id="projectName" value="Mi_Dibujo" placeholder="Nombre del dibujo" style="text-align: center; font-weight: bold;">
+        </div>
+        <img id="export-image" src="" alt="Tu dibujo" style="max-width: 100%; max-height: 50vh; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); margin-bottom: 15px; background: white;">
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <button id="btnDownloadImg" style="flex: 1; background: #43b581; color: white;">⬇️ Descargar</button>
+            <button id="btnShareImg" style="flex: 1; background: var(--accent); color: white;">📤 Compartir</button>
+        </div>
+        <button onclick="closeExportModal()" style="width: 100%; background: #444;">Volver al Editor</button>
+    </div>
+
+    <div id="editor-screen">
+        
+        <div id="toolbar-container">
+            <div id="toolbar">
+                <div class="tool-group">
+                    <button onclick="exitEditor()">🏠</button>
+                    <button id="btnReset" onclick="resetCanvas()" title="Borrar todo el lienzo" style="background:#ed4245;">🗑️</button>
+                    <button id="btnUndo">↩️</button>
+                    <button id="btnRedo">↪️</button> 
+                    <button id="btnLasso" title="Lazo de Selección">🪢</button>
+                    <button id="btnCut" title="Cortar Selección">✂️</button>
+                    <button id="btnPaste" title="Pegar">📋</button>
+                    <button id="btnTransform" title="Transformar Selección">🔄</button>
+                    <button id="btnFullScreen" onclick="toggleFullScreen()" title="Pantalla Completa">🔲</button>
+                </div>
+                
+                <div class="tool-group">
+                    <select id="brushType" onchange="checkBrushType()">
+                        <option value="lapiz">✏️ Lápiz</option>
+                        <option value="delineado">🖋️ Delineado (Filo)</option>
+                        <option value="pluma">🖋️ Pluma Fina</option>
+                        <option value="caligrafia">📜 Caligrafía</option>
+                        <option value="cincel">🔨 Cincel Plano</option>
+                        <option value="marcador">🖍️ Fibrón / Marcador</option>
+                        <option value="pincel">🖌️ Pincel</option>
+                        <option value="lapicera">✒️ Lapicera</option>
+                        <option value="aerografo">💨 Aerógrafo</option>
+                        <option value="neon">✨ Neón</option>
+                        <option value="acuarela">💧 Acuarela</option>
+                        <option value="resaltador">🟨 Resaltador</option>
+                        <option value="tiza">🪨 Tiza</option>
+                        <option value="custom">🌟 Mis Pinceles</option>
+                    </select>
+                    <button id="btnCreateBrush" onclick="openCustomBrushModal()" style="display:none; padding: 4px 8px;">Editar</button>
+                    <select id="drawMode">
+                        <option value="free">〰️ Libre</option>
+                        <option value="line">📏 Línea</option>
+                        <option value="rect">🔲 Cuadrado</option>
+                        <option value="triangle">🔺 Triángulo</option>
+                        <option value="circle">⭕ Círculo</option>
+                    </select>
+                    
+                    <div class="color-palette-container">
+                        <div class="color-row">
+                            <input type="color" id="colorPicker" value="#000000" style="width:35px; height:35px; padding:0;">
+                            <button id="btnAddColor" onclick="saveCurrentColor()" style="padding: 4px 8px;">+ Guardar</button>
+                        </div>
+                        <div id="savedColors"></div>
+                    </div>
+                    
+                    <div class="advanced-tools-container">
+                        <div class="advanced-tools-row">
+                               
+                            <button id="btnShortcutMode" onclick="toggleShortcutMode()" title="Modo Atajos Rápidos">⚡ Atajos</button>
+                            <button id="btnStylus" onclick="toggleStylus()" class="active-tool" title="Sensibilidad Stylus (Presión)">🖊️ Stylus</button>
+                            <button id="btnSymmetry" onclick="toggleSymmetry()" title="Simetría">🦋 Off</button>
+                            <button id="btnRuler" onclick="toggleRuler()" title="Reglas y Perspectiva">📐 Regla</button>
+                            <button id="btnAlphaLock" onclick="toggleAlphaLock()" title="Bloquear Alfa (Pintar solo sobre lo dibujado)">🔒 Alfa</button>
+                            <input type="range" id="rulerSize" min="1" max="20" value="2" style="width: 50px; display: none;" oninput="drawRulerGuides()" title="Grosor de la regla">
+                        </div>
+                        <div class="advanced-tools-row">
+                            <button onclick="openTimelapseModal()" title="Exportar proceso de dibujo">🎥 Time-lapse</button>
+                            <div title="Estabilizador de trazo" style="display:flex; align-items:center; background:#1e1e1e; padding:4px 8px; border-radius:5px; gap:4px; font-size:12px; border:1px solid #444;">
+                                <span>〰️ Estabilizador</span>
+                                <input type="range" id="stabilizer" min="0" max="95" value="0" style="width: 60px;">
+                            </div>
+                        </div>
+                        
+                        <div class="brush-size-control">
+                            <input type="range" id="brushSize" min="1" max="100" value="5" style="width: 70px;" oninput="document.getElementById('brushSizeVal').innerText = this.value">
+                            <span id="brushSizeVal" class="brush-size-val">5</span>
+                            <button id="btnBrushSettings" onclick="openBrushSettingsModal()" title="Ajustar y guardar este pincel" style="margin-left: 5px; padding: 4px 8px; font-size: 12px; background: #2f3136; border: 1px solid #444;">🎛️ Ajustes</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tool-group">
+                    <button id="btnEraser">Goma</button>
+                    <button id="btnBucket">🪣</button>
+                    <button id="btnEyedropper" title="Cuentagotas">💧</button>
+                </div>
+
+                <div class="tool-group" style="border:none">
+                    <label class="btn">🖼️ <input type="file" id="imgUpload" accept="image/*" style="display:none;"></label>
+                    <button id="btnAddLayer">+ Capa</button>
+                    <button id="btnCrop" onclick="openCropModal()" title="Recortar Lienzo">✂️</button>
+                    <button id="btnSave">💾</button>
+                </div>
+            </div>
+            <button id="btnToggleToolbarTop" onclick="toggleToolbarTop()">⬆️ Ocultar Menú</button>
+        </div>
+
+        <div id="layer-panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                <span style="font-weight: bold;">Capas</span>
+                <button onclick="mergeLayers()" style="padding: 2px 6px; font-size: 11px; background: #444;" title="Unir todas las capas visibles">👇 Unir Todo</button>
+            </div>
+            <div id="layer-list"></div>
+        </div>
+
+        <button id="btnToggleUI">👁️</button>
+       <div id="quick-shortcuts" style="display:none; position: fixed; left: 15px; top: 50%; transform: translateY(-50%); flex-direction: column; gap: 20px; z-index: 10000; pointer-events: none;">
+            <button onclick="document.getElementById('btnUndo').click()" style="width: 55px; height: 55px; border-radius: 50%; font-size: 24px; background: rgba(30, 33, 36, 0.7); border: 2px solid var(--accent); pointer-events: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">↩️</button>
+            <button onclick="document.getElementById('btnRedo').click()" style="width: 55px; height: 55px; border-radius: 50%; font-size: 24px; background: rgba(30, 33, 36, 0.7); border: 2px solid var(--accent); pointer-events: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">↪️</button>
+            <button onclick="document.getElementById('btnEraser').click()" style="width: 55px; height: 55px; border-radius: 50%; font-size: 24px; background: rgba(237, 66, 69, 0.7); border: 2px solid white; pointer-events: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">🧹</button>
+       </div>
+        <div id="viewport">
+            <div id="canvas-stack">
+                <canvas id="onion-canvas"></canvas>
+                <canvas id="preview-canvas" style="pointer-events: none; z-index: 9998;"></canvas>
+                <canvas id="playback-canvas"></canvas>
+            </div>
+        </div>
+
+        <div id="timeline-container" style="display:none;">
+            <div id="timeline-controls">
+                <button onclick="togglePlayAnim()" id="btnPlayAnim" style="background: #43b581; font-size: 14px;">▶️ Play</button>
+                <button onclick="toggleOnionSkin()" id="btnOnionSkin" class="active-tool" style="font-size: 13px;">🧅 Cebolla</button>
+                <select id="animFPS" onchange="animationFPS = parseInt(this.value)" style="padding: 5px; font-size: 12px; background: #2f3136;">
+                    <option value="2">2 FPS</option>
+                    <option value="8">8 FPS</option>
+                    <option value="12" selected>12 FPS</option>
+                    <option value="24">24 FPS</option>
+                </select>
+                <button onclick="addFrame(false)" style="background: #444; font-size: 13px;">➕ Vacío</button>
+                <button onclick="addFrame(true)" style="background: #444; font-size: 13px;">📑 Duplicar</button>
+                <button onclick="deleteFrame()" style="background: var(--danger); font-size: 13px;" title="Eliminar fotograma actual">🗑️ Eliminar</button>
+                <input type="text" id="animProjectName" value="Mi_Animacion" placeholder="Nombre del video" title="Nombre para exportar el video">
+                <button onclick="exportAnimationVideo()" style="background: var(--accent); font-size: 13px;" title="Exportar animación como video">🎥 Exportar</button>
+            </div>
+            <div id="timeline-frames"></div>
+        </div>
+    </div>
+
+    <div id="color-loupe"></div>
+
+    <script>
+        const drawModeEl = document.getElementById('drawMode');
+        const brushTypeEl = document.getElementById('brushType');
+        const colorPickerEl = document.getElementById('colorPicker');
+        const brushSizeEl = document.getElementById('brushSize');
+        
+        window.addEventListener('beforeunload', function (e) {
+            if (document.getElementById('editor-screen').style.display === 'flex') {
+                e.preventDefault();
+                e.returnValue = 'Tienes un dibujo en progreso. ¿Seguro que quieres salir sin guardar?';
+            }
+        });
+
+        let cWidth = 2000, cHeight = 2000;
+        let layers = [];
+        let activeLayerIndex = -1;
+        let scale = 1, offsetX = 0, offsetY = 0;
+        let isDrawing = false, isEraser = false, isBucket = false, isEyedropper = false, isPickingColor = false, isLasso = false;
+        let startX, startY, currentX, currentY;
+        
+        let lassoPath = [];
+        let clipboardCanvas = null;
+        let clipboardOffsetX = 0, clipboardOffsetY = 0;
+
+        let undoHistory = [];
+        let redoHistory = [];
+
+        let evCache = [], prevDiff = -1, prevMid = null;
+
+        let useStylus = true;
+        let currentPressure = 1.0;
+        let symmetryMode = 0; 
+        let isRulerActive = false;
+        let isAlphaLock = false; 
+        
+        let timelapseFrames = []; 
+        let currentVideoBlob = null;
+        let currentVideoUrl = null;
+
+        // --- VARIABLES ANIMACIÓN ---
+        let isAnimationMode = false;
+        let frames = []; 
+        let currentFrameIndex = 0;
+        let isPlaying = false;
+        let animationFPS = 12;
+        let onionSkinEnabled = true;
+        let playInterval = null;
+        let playbackCache = [];
+        // ---------------------------
+
+        let savedBrushesArr = JSON.parse(localStorage.getItem('studioBrushes')) || [];
+        let savedColorsArr = JSON.parse(localStorage.getItem('studioColors')) || [];
+        
+        let activeCustomBrushId = null;
+        let customBrushImg = null;
+        let customBrushTinted = null;
+        let lastTintHex = "";
+
+        const viewport = document.getElementById('viewport');
+        const stack = document.getElementById('canvas-stack');
+        const previewCanvas = document.getElementById('preview-canvas');
+        const previewCtx = previewCanvas.getContext('2d');
+        const layerList = document.getElementById('layer-list');
+
+        const tempColorCanvas = document.createElement('canvas');
+        tempColorCanvas.width = 1; tempColorCanvas.height = 1;
+        const tempColorCtx = tempColorCanvas.getContext('2d', { willReadFrequently: true });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if(savedColorsArr.length > 0) renderPalette();
+        });
+
+        /* --- FUNCIONES DE ANIMACIÓN --- */
+        function toggleProjectLimits() {
+            const mode = document.getElementById('projectMode').value;
+            const wInput = document.getElementById('canvasW');
+            const hInput = document.getElementById('canvasH');
+            const presetSelect = document.getElementById('canvasPreset');
+            
+            if (mode === 'animation') {
+                if (parseInt(wInput.value) > 1080) { wInput.value = 1080; }
+                if (parseInt(hInput.value) > 1080) { hInput.value = 1080; }
+                presetSelect.value = 'custom';
+            }
+            updateCanvasPreview();
+        }
+
+        function saveCurrentFrameLayers() {
+            if (isAnimationMode && frames[currentFrameIndex]) {
+                frames[currentFrameIndex].layersData = layers;
+            }
+        }
+
+        function addFrame(duplicate = false) {
+            if (frames.length >= 120) { alert("Límite seguro de frames alcanzado (120)."); return; }
+            saveCurrentFrameLayers();
+
+            const oldCanvases = stack.querySelectorAll('.layer-canvas');
+            oldCanvases.forEach(c => c.remove());
+            layers = [];
+
+            if (duplicate && frames[currentFrameIndex]) {
+                const prevLayers = frames[currentFrameIndex].layersData;
+                prevLayers.forEach(pl => {
+                    const canvas = document.createElement('canvas');
+                    canvas.className = 'layer-canvas';
+                    canvas.width = cWidth; canvas.height = cHeight;
+                    canvas.style.opacity = pl.opacity / 100;
+                    canvas.style.mixBlendMode = pl.blendMode || 'normal';
+                    if (!pl.visible) canvas.classList.add('hidden-layer');
+
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                    ctx.drawImage(pl.canvas, 0, 0);
+
+                    stack.insertBefore(canvas, document.getElementById('onion-canvas'));
+                    layers.push({ canvas, ctx, visible: pl.visible, opacity: pl.opacity, name: pl.name, blendMode: pl.blendMode });
+                });
+            } else {
+                addLayer(true);
+                addLayer();
+            }
+
+            const newFrame = { layersData: layers };
+            frames.splice(currentFrameIndex + 1, 0, newFrame);
+            currentFrameIndex++;
+
+            selectLayer(layers.length - 1);
+            updateTimelineUI();
+            drawOnionSkin();
+        }
+
+        /* CAMBIO 2: Función para eliminar el fotograma actual */
+        function deleteFrame() {
+            if (frames.length <= 1) { alert("No puedes eliminar el único fotograma."); return; }
+            if (!confirm(`¿Eliminar el fotograma ${currentFrameIndex + 1}? Esta acción no se puede deshacer.`)) return;
+            
+            if (isPlaying) togglePlayAnim();
+
+            // Quitar los canvas del DOM
+            frames[currentFrameIndex].layersData.forEach(l => {
+                if (l.canvas.parentNode === stack) stack.removeChild(l.canvas);
+            });
+
+            frames.splice(currentFrameIndex, 1);
+
+            // Ajustar índice si era el último
+            if (currentFrameIndex >= frames.length) currentFrameIndex = frames.length - 1;
+
+            // Cargar el nuevo frame actual
+            layers = frames[currentFrameIndex].layersData;
+            layers.forEach(l => stack.insertBefore(l.canvas, document.getElementById('onion-canvas')));
+
+            selectLayer(layers.length - 1);
+            updateTimelineUI();
+            drawOnionSkin();
+            undoHistory = []; redoHistory = [];
+        }
+
+        function switchFrame(index) {
+            if (index === currentFrameIndex || index < 0 || index >= frames.length || isPlaying) return;
+            saveCurrentFrameLayers();
+
+            const oldCanvases = stack.querySelectorAll('.layer-canvas');
+            oldCanvases.forEach(c => c.remove());
+
+            currentFrameIndex = index;
+            layers = frames[currentFrameIndex].layersData;
+
+            layers.forEach(l => {
+                stack.insertBefore(l.canvas, document.getElementById('onion-canvas'));
+            });
+
+            selectLayer(layers.length - 1);
+            updateTimelineUI();
+            drawOnionSkin();
+            
+            undoHistory = []; redoHistory = [];
+        }
+
+        function updateTimelineUI() {
+            if (!isAnimationMode) return;
+            const container = document.getElementById('timeline-frames');
+            container.innerHTML = '';
+            frames.forEach((f, i) => {
+                const box = document.createElement('div');
+                box.className = `frame-box ${i === currentFrameIndex ? 'active-frame' : ''}`;
+                box.innerText = i + 1;
+                box.onclick = () => switchFrame(i);
+                container.appendChild(box);
+            });
+            const active = container.querySelector('.active-frame');
+            if (active) active.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+
+        function toggleOnionSkin() {
+            onionSkinEnabled = !onionSkinEnabled;
+            const btn = document.getElementById('btnOnionSkin');
+            if (onionSkinEnabled) { btn.classList.add('active-tool'); btn.innerText = "🧅 Cebolla (ON)"; } 
+            else { btn.classList.remove('active-tool'); btn.innerText = "🧅 Cebolla (OFF)"; }
+            drawOnionSkin();
+        }
+
+        function renderTintedFrame(frameLayers, targetCtx, tintColor) {
+            const temp = document.createElement('canvas');
+            temp.width = cWidth; temp.height = cHeight;
+            const tCtx = temp.getContext('2d');
+
+            frameLayers.forEach(l => {
+                if (l.visible && l.name !== 'Fondo') {
+                    tCtx.globalAlpha = l.opacity / 100;
+                    tCtx.globalCompositeOperation = l.blendMode === 'normal' || !l.blendMode ? 'source-over' : l.blendMode;
+                    tCtx.drawImage(l.canvas, 0, 0);
+                }
+            });
+
+            tCtx.globalCompositeOperation = 'source-in';
+            tCtx.fillStyle = tintColor;
+            tCtx.fillRect(0, 0, cWidth, cHeight);
+
+            targetCtx.globalAlpha = 1.0;
+            targetCtx.globalCompositeOperation = 'source-over';
+            targetCtx.drawImage(temp, 0, 0);
+        }
+
+        function drawOnionSkin() {
+            const oCanvas = document.getElementById('onion-canvas');
+            if (!oCanvas) return;
+            oCanvas.width = cWidth; oCanvas.height = cHeight;
+            const oCtx = oCanvas.getContext('2d');
+            oCtx.clearRect(0, 0, cWidth, cHeight);
+
+            if (!isAnimationMode || !onionSkinEnabled || isPlaying) return;
+
+            if (currentFrameIndex > 0) {
+                renderTintedFrame(frames[currentFrameIndex - 1].layersData, oCtx, "rgba(255, 60, 60, 0.25)");
+            }
+            if (currentFrameIndex < frames.length - 1) {
+                renderTintedFrame(frames[currentFrameIndex + 1].layersData, oCtx, "rgba(60, 100, 255, 0.25)");
+            }
+        }
+
+        function cacheFramesForPlayback() {
+            playbackCache = [];
+            frames.forEach(f => {
+                const temp = document.createElement('canvas');
+                temp.width = cWidth; temp.height = cHeight;
+                const tCtx = temp.getContext('2d');
+                tCtx.fillStyle = "white"; tCtx.fillRect(0, 0, cWidth, cHeight);
+                f.layersData.forEach(l => {
+                    if (l.visible) {
+                        tCtx.globalAlpha = l.opacity / 100;
+                        tCtx.globalCompositeOperation = l.blendMode === 'normal' || !l.blendMode ? 'source-over' : l.blendMode;
+                        tCtx.drawImage(l.canvas, 0, 0);
+                    }
+                });
+                playbackCache.push(temp);
+            });
+        }
+
+        function togglePlayAnim() {
+            const btn = document.getElementById('btnPlayAnim');
+            const playCanvas = document.getElementById('playback-canvas');
+            const pCtx = playCanvas.getContext('2d');
+
+            if (isPlaying) {
+                isPlaying = false;
+                clearInterval(playInterval);
+                btn.innerText = "▶️ Play";
+                btn.style.background = "#43b581";
+                playCanvas.style.display = 'none';
+                drawOnionSkin();
+            } else {
+                saveCurrentFrameLayers();
+                cacheFramesForPlayback();
+                if (playbackCache.length === 0) return;
+
+                isPlaying = true;
+                btn.innerText = "⏸️ Pausa";
+                btn.style.background = "#ed4245";
+                
+                playCanvas.width = cWidth; playCanvas.height = cHeight;
+                playCanvas.style.display = 'block';
+
+                let playIdx = 0;
+                document.getElementById('onion-canvas').getContext('2d').clearRect(0,0,cWidth,cHeight);
+
+                playInterval = setInterval(() => {
+                    pCtx.clearRect(0, 0, cWidth, cHeight);
+                    if (playbackCache[playIdx]) {
+                        pCtx.drawImage(playbackCache[playIdx], 0, 0);
+                    }
+                    playIdx = (playIdx + 1) % playbackCache.length;
+                }, 1000 / animationFPS);
+            }
+        }
+
+        /* CAMBIO 4: Export de video corregido + CAMBIO 5: usa nombre del input unificado */
+        async function exportAnimationVideo() {
+            if (!isAnimationMode) return;
+            if (isPlaying) togglePlayAnim();
+            
+            saveCurrentFrameLayers();
+            cacheFramesForPlayback();
+            if (playbackCache.length === 0) return;
+
+            // CAMBIO 5: Nombre desde el input unificado del timeline
+            let animName = (document.getElementById('animProjectName').value || '').trim();
+            if (!animName) animName = "Mi_Animacion";
+
+            const exportBtn = document.querySelector('#timeline-controls button[onclick="exportAnimationVideo()"]');
+            const oldText = exportBtn ? exportBtn.innerText : '🎥 Exportar';
+            if (exportBtn) { exportBtn.innerText = "⏳ Exportando..."; exportBtn.disabled = true; }
+
+            // CAMBIO 4: Convertir frames a dataURL primero (mismo método robusto que timelapse)
+            const frameDataURLs = playbackCache.map(c => c.toDataURL('image/webp', 0.85));
+
+            const vCanvas = document.createElement('canvas');
+            vCanvas.width = cWidth; vCanvas.height = cHeight;
+            const vCtx = vCanvas.getContext('2d');
+
+            // Detectar el mejor codec disponible
+            const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+                ? 'video/webm;codecs=vp9'
+                : 'video/webm';
+
+            const stream = vCanvas.captureStream(animationFPS);
+            const mediaRecorder = new MediaRecorder(stream, { mimeType });
+            const chunks = [];
+
+            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                const ts = new Date().getTime().toString().slice(-4);
+                a.download = `${animName}_${ts}.webm`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                if (exportBtn) { exportBtn.innerText = oldText; exportBtn.disabled = false; }
+            };
+
+            mediaRecorder.start();
+
+            // Dibujar cada frame desde su dataURL para máxima fidelidad
+            for (let i = 0; i < frameDataURLs.length; i++) {
+                await new Promise(r => {
+                    const img = new Image();
+                    img.onload = () => { vCtx.drawImage(img, 0, 0); r(); };
+                    img.src = frameDataURLs[i];
+                });
+                await new Promise(r => setTimeout(r, 1000 / animationFPS));
+            }
+            // Pausa extra para que el último frame quede grabado
+            await new Promise(r => setTimeout(r, 300));
+            mediaRecorder.stop();
+        }
+        /* -------------------------------- */
+
+
+        function toggleStylus() {
+            useStylus = !useStylus;
+            const btn = document.getElementById('btnStylus');
+            if(useStylus) { btn.classList.add('active-tool'); btn.innerText = "🖊️ Stylus (ON)"; }
+            else { btn.classList.remove('active-tool'); btn.innerText = "🖊️ Stylus (OFF)"; }
+        }
+
+        function toggleAlphaLock() {
+            isAlphaLock = !isAlphaLock;
+            const btn = document.getElementById('btnAlphaLock');
+            if(isAlphaLock) { btn.classList.add('active-tool'); btn.innerText = "🔒 Alfa (ON)"; }
+            else { btn.classList.remove('active-tool'); btn.innerText = "🔒 Alfa"; }
+        }
+
+        function toggleSymmetry() {
+            symmetryMode = (symmetryMode + 1) % 4;
+            const btn = document.getElementById('btnSymmetry');
+            if(symmetryMode === 0) { btn.innerText = "🦋 Off"; btn.classList.remove('active-tool'); }
+            else if(symmetryMode === 1) { btn.innerText = "🦋 Horiz"; btn.classList.add('active-tool'); }
+            else if(symmetryMode === 2) { btn.innerText = "🦋 Vertic"; }
+            else if(symmetryMode === 3) { btn.innerText = "🦋 Quad"; }
+            drawRulerGuides();
+        }
+
+        function toggleRuler() {
+            isRulerActive = !isRulerActive;
+            const btn = document.getElementById('btnRuler');
+            const rulerSize = document.getElementById('rulerSize');
+            if(isRulerActive) { 
+                btn.classList.add('active-tool'); 
+                rulerSize.style.display = 'inline-block';
+            } else { 
+                btn.classList.remove('active-tool'); 
+                rulerSize.style.display = 'none';
+                previewCtx.clearRect(0,0,cWidth,cHeight); 
+            }
+            drawRulerGuides();
+        }
+
+        function drawRulerGuides() {
+            previewCtx.clearRect(0,0,cWidth,cHeight);
+            if(isRulerActive) {
+                const rSize = parseInt(document.getElementById('rulerSize').value) || 2;
+                previewCtx.strokeStyle = 'rgba(0, 168, 255, 0.5)';
+                previewCtx.lineWidth = rSize;
+                previewCtx.beginPath();
+                previewCtx.moveTo(0, cHeight/2); previewCtx.lineTo(cWidth, cHeight/2);
+                previewCtx.moveTo(cWidth/2, 0); previewCtx.lineTo(cWidth/2, cHeight);
+                previewCtx.stroke();
+            }
+        }
+
+        function applySymmetry(x, y, action) {
+            action(x, y); 
+            if(symmetryMode === 1 || symmetryMode === 3) action(cWidth - x, y); 
+            if(symmetryMode === 2 || symmetryMode === 3) action(x, cHeight - y); 
+            if(symmetryMode === 3) action(cWidth - x, cHeight - y); 
+        }
+
+        function closeModalById(id) {
+            document.getElementById(id).style.display = 'none';
+            document.getElementById('modal-overlay').style.display = 'none';
+        }
+
+        function captureTimelapseFrame() {
+            const tlCanvas = document.createElement('canvas');
+            tlCanvas.width = 600; 
+            tlCanvas.height = 600;
+            const tlCtx = tlCanvas.getContext('2d');
+            tlCtx.fillStyle = "white"; tlCtx.fillRect(0,0,600,600);
+            
+            layers.forEach(l => {
+                if(l.visible) {
+                    tlCtx.globalAlpha = l.opacity / 100;
+                    tlCtx.globalCompositeOperation = l.blendMode === 'normal' || !l.blendMode ? 'source-over' : l.blendMode;
+                    tlCtx.drawImage(l.canvas, 0, 0, cWidth, cHeight, 0, 0, 600, 600);
+                }
+            });
+            tlCtx.globalCompositeOperation = 'source-over';
+            timelapseFrames.push(tlCanvas.toDataURL("image/webp", 0.5));
+        }
+
+        function openTimelapseModal() {
+            document.getElementById('tl-frames-count').innerText = timelapseFrames.length + " trazos grabados";
+            document.getElementById('tl-name-group').style.display = 'none';
+            document.getElementById('tl-download-actions').style.display = 'none';
+            document.getElementById('btnRenderVideo').style.display = 'block';
+            document.getElementById('btnRenderVideo').innerText = "Procesar Video (.webm)";
+            
+            document.getElementById('timelapse-modal').style.display = 'block';
+            document.getElementById('modal-overlay').style.display = 'block';
+        }
+
+        async function renderTimelapseVideo() {
+            if(timelapseFrames.length === 0) { alert("No has dibujado nada aún."); return; }
+            const btn = document.getElementById('btnRenderVideo');
+            btn.innerText = "Generando... (No cierres)";
+            btn.disabled = true;
+
+            const vCanvas = document.createElement('canvas');
+            vCanvas.width = 600; vCanvas.height = 600;
+            const vCtx = vCanvas.getContext('2d');
+            const stream = vCanvas.captureStream(30); 
+            const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            const chunks = [];
+            
+            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+            mediaRecorder.onstop = () => {
+                currentVideoBlob = new Blob(chunks, { type: 'video/webm' });
+                if(currentVideoUrl) URL.revokeObjectURL(currentVideoUrl);
+                currentVideoUrl = URL.createObjectURL(currentVideoBlob);
+                
+                btn.style.display = 'none';
+                btn.disabled = false;
+                
+                document.getElementById('tl-name-group').style.display = 'flex';
+                document.getElementById('tl-download-actions').style.display = 'flex';
+            };
+
+            mediaRecorder.start();
+
+            for(let i=0; i<timelapseFrames.length; i++) {
+                await new Promise(r => {
+                    const img = new Image();
+                    img.onload = () => { vCtx.drawImage(img, 0, 0); r(); }
+                    img.src = timelapseFrames[i];
+                });
+                await new Promise(r => setTimeout(r, 100)); 
+            }
+            mediaRecorder.stop();
+        }
+
+        function downloadTimelapse() {
+            if(!currentVideoUrl) return;
+            let nameInput = document.getElementById('videoProjectName').value.trim();
+            if (nameInput === "") nameInput = "Timelapse";
+            const uniqueTimestamp = new Date().getTime().toString().slice(-4);
+            const fileName = nameInput + "_" + uniqueTimestamp + ".webm";
+
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = currentVideoUrl;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        async function shareTimelapse() {
+            if(!currentVideoBlob) return;
+            let nameInput = document.getElementById('videoProjectName').value.trim();
+            if (nameInput === "") nameInput = "Timelapse";
+            const uniqueTimestamp = new Date().getTime().toString().slice(-4);
+            const fileName = nameInput + "_" + uniqueTimestamp + ".webm";
+
+            const file = new File([currentVideoBlob], fileName, { type: 'video/webm' });
+            try {
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({ title: nameInput, files: [file] });
+                } else {
+                    alert("Tu dispositivo no soporta compartir videos directamente. Usa el botón de descargar.");
+                }
+            } catch (err) {
+                console.log("Error al compartir video:", err);
+            }
+        }
+        
+
+        function openModal() { 
+            document.getElementById('new-canvas-modal').style.display = 'block'; 
+            document.getElementById('modal-overlay').style.display = 'block'; 
+            setTimeout(updateCanvasPreview, 10); 
+        }
+        
+        function closeModal() { document.getElementById('new-canvas-modal').style.display = 'none'; document.getElementById('modal-overlay').style.display = 'none'; }
+        
+        function applyPreset() {
+            const p = document.getElementById('canvasPreset').value;
+            if(p !== 'custom') { const [w, h] = p.split('x'); document.getElementById('canvasW').value = w; document.getElementById('canvasH').value = h; }
+            updateCanvasPreview();
+        }
+
+        function updateCanvasPreview() {
+            const w = parseInt(document.getElementById('canvasW').value) || 1;
+            const h = parseInt(document.getElementById('canvasH').value) || 1;
+            const box = document.getElementById('preview-box');
+            const container = document.getElementById('preview-container');
+            
+            const maxW = container.clientWidth - 20; 
+            const maxH = container.clientHeight - 20;
+
+            let scalePreview = Math.min(maxW / w, maxH / h);
+            
+            box.style.width = (w * scalePreview) + "px";
+            box.style.height = (h * scalePreview) + "px";
+        }
+
+        function toggleFullScreen() {
+            const doc = window.document;
+            const docEl = doc.documentElement;
+
+            const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+            const cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+            if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+                if (requestFullScreen) {
+                    requestFullScreen.call(docEl).catch(err => console.log(err));
+                }
+            } else {
+                if (cancelFullScreen) {
+                    cancelFullScreen.call(doc);
+                }
+            }
+        }
+
+        function toggleToolbarTop() {
+            const tc = document.getElementById('toolbar-container');
+            const btn = document.getElementById('btnToggleToolbarTop');
+            if (tc.classList.contains('toolbar-hidden')) {
+                tc.classList.remove('toolbar-hidden');
+                btn.innerHTML = "⬆️ Ocultar Menú";
+                btn.style.bottom = "-30px";
+            } else {
+                tc.classList.add('toolbar-hidden');
+                btn.innerHTML = "⬇️ Mostrar Menú";
+                btn.style.bottom = "-30px";
+            }
+        }
+
+        function startEditor() {
+            const docEl = window.document.documentElement;
+            const requestFS = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+            if (!document.fullscreenElement && requestFS) {
+                requestFS.call(docEl).catch(e => console.log(e));
+            }
+
+            isAnimationMode = document.getElementById('projectMode').value === 'animation';
+            document.getElementById('timeline-container').style.display = isAnimationMode ? 'flex' : 'none';
+
+            cWidth = parseInt(document.getElementById('canvasW').value);
+            cHeight = parseInt(document.getElementById('canvasH').value);
+            closeModal();
+            document.getElementById('home-screen').style.display = 'none';
+            document.getElementById('editor-screen').style.display = 'flex';
+            
+            const oldCanvases = stack.querySelectorAll('.layer-canvas');
+            oldCanvases.forEach(c => c.remove());
+            layers = []; frames = []; undoHistory = []; redoHistory = []; timelapseFrames = [];
+            
+            stack.style.width = `${cWidth}px`; stack.style.height = `${cHeight}px`;
+            previewCanvas.width = cWidth; previewCanvas.height = cHeight;
+            const oCanvas = document.getElementById('onion-canvas');
+            oCanvas.width = cWidth; oCanvas.height = cHeight;
+            
+            scale = Math.min(window.innerWidth / cWidth, window.innerHeight / cHeight) * 0.9;
+            offsetX = (window.innerWidth - (cWidth * scale)) / 2;
+            offsetY = (window.innerHeight - (cHeight * scale)) / 2;
+            
+            if(isAnimationMode) offsetY -= 40; 
+            
+            updateTransform();
+
+            addLayer(true); 
+            addLayer(); 
+            selectLayer(1);
+            
+            if(isAnimationMode) {
+                frames = [{ layersData: layers }];
+                currentFrameIndex = 0;
+                updateTimelineUI();
+            }
+
+            document.getElementById('toolbar-container').classList.remove('toolbar-hidden');
+            document.getElementById('btnToggleToolbarTop').innerHTML = "⬆️ Ocultar Menú";
+            
+            captureTimelapseFrame(); 
+        }
+
+        function exitEditor() { 
+            if(confirm("¿Seguro que quieres volver al menú? Tu dibujo actual se perderá si no lo guardaste.")) {
+                if(isPlaying) togglePlayAnim();
+                document.getElementById('editor-screen').style.display = 'none'; 
+                document.getElementById('home-screen').style.display = 'flex'; 
+            }
+        }
+
+        function resetCanvas() {
+            if(!confirm("¿Seguro que quieres borrar TODO el lienzo actual? Esto no se puede deshacer.")) return;
+            const oldCanvases = stack.querySelectorAll('.layer-canvas');
+            oldCanvases.forEach(c => c.remove());
+            layers = []; undoHistory = []; redoHistory = [];
+            addLayer(true); addLayer(); selectLayer(1);
+            previewCtx.clearRect(0,0,cWidth,cHeight);
+            captureTimelapseFrame();
+            drawOnionSkin();
+        }
+
+        function addLayer(isBg = false, imgObj = null) {
+            const canvas = document.createElement('canvas');
+            canvas.className = 'layer-canvas';
+            canvas.width = cWidth; canvas.height = cHeight;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            
+            if(isBg) { ctx.fillStyle = "white"; ctx.fillRect(0,0,cWidth,cHeight); }
+            if(imgObj) {
+                const ratio = Math.min(cWidth / imgObj.width, cHeight / imgObj.height);
+                ctx.drawImage(imgObj, (cWidth - imgObj.width*ratio)/2, (cHeight - imgObj.height*ratio)/2, imgObj.width*ratio, imgObj.height*ratio);
+            }
+            
+            stack.insertBefore(canvas, document.getElementById('onion-canvas'));
+            
+            layers.push({ canvas, ctx, visible: true, opacity: 100, name: isBg ? 'Fondo' : `Capa ${layers.length}`, blendMode: 'normal' });
+            selectLayer(layers.length - 1);
+        }
+
+        window.renameLayer = function(i) {
+            let currentName = layers[i].name;
+            let newName = prompt("Nombre de la capa (máx 25 caracteres):", currentName);
+            if (newName !== null) {
+                newName = newName.trim();
+                if (newName.length > 25) newName = newName.substring(0, 25);
+                if (newName.length > 0) {
+                    layers[i].name = newName;
+                    renderLayerUI();
+                }
+            }
+        };
+
+function renderLayerUI() {
+    layerList.innerHTML = '';
+    for (let i = layers.length - 1; i >= 0; i--) {
+        const layer = layers[i];
+        const div = document.createElement('div');
+        div.className = `layer-item ${i === activeLayerIndex ? 'active' : ''}`;
+        
+        div.innerHTML = `
+            <div class="layer-top">
+                <span class="layer-name" onclick="selectLayer(${i})" title="${layer.name}">${layer.name}</span>
+                <div class="layer-controls" style="display:flex; align-items:center;">
+                    ${i !== 0 ? `<button onclick="mergeLayerDown(${i})" title="Unir con la capa inferior" style="background:#43b581; padding: 4px; font-size:12px; margin-right:2px;">👇</button>` : ''}
+                    <button onclick="toggleVisibility(${i})">${layer.visible ? '👁️' : '🕶️'}</button>
+                    
+                    <div style="display:inline-flex; flex-direction:column; gap:2px; margin-left:3px; margin-right:3px;">
+                        <button onclick="moveLayerUp(${i})" style="padding:0px 6px; font-size:12px; height:16px; background:#444;" ${i === layers.length - 1 ? 'disabled style="opacity:0.3;"' : ''}>▲</button>
+                        <button onclick="moveLayerDown(${i})" style="padding:0px 6px; font-size:12px; height:16px; background:#444;" ${i === 0 ? 'disabled style="opacity:0.3;"' : ''}>▼</button>
+                    </div>
+
+                    ${i !== 0 ? `<button onclick="deleteLayer(${i})" style="color:var(--danger)">🗑️</button>` : ''}
+                </div>
+            </div>
+            <div style="display:flex; gap:5px; margin-top:5px; align-items:center;">
+                <input type="range" min="0" max="100" value="${layer.opacity}" oninput="changeOpacity(${i}, this.value)" style="flex:1;">
+                <select onchange="changeBlendMode(${i}, this.value)" style="width:75px; background:#222; color:white; border:none; border-radius:3px; font-size:11px; padding:2px;">
+                    <option value="normal" ${layer.blendMode==='normal'?'selected':''}>Normal</option>
+                    <option value="multiply" ${layer.blendMode==='multiply'?'selected':''}>Multiplicar</option>
+                    <option value="screen" ${layer.blendMode==='screen'?'selected':''}>Trama</option>
+                    <option value="overlay" ${layer.blendMode==='overlay'?'selected':''}>Superponer</option>
+                </select>
+            </div>
+        `;
+        layerList.appendChild(div);
+    }
+}
+
+
+        function mergeLayers() {
+            if(layers.length <= 1) return;
+            if(!confirm("¿Unir todas las capas visibles en una sola capa?")) return;
+
+            const final = document.createElement('canvas');
+            final.width = cWidth; final.height = cHeight;
+            const fCtx = final.getContext('2d');
+
+            layers.forEach(l => {
+                if(l.visible) {
+                    fCtx.globalAlpha = l.opacity / 100;
+                    fCtx.globalCompositeOperation = l.blendMode === 'normal' || !l.blendMode ? 'source-over' : l.blendMode;
+                    fCtx.drawImage(l.canvas, 0, 0);
+                }
+            });
+
+            const oldCanvases = stack.querySelectorAll('.layer-canvas');
+            oldCanvases.forEach(c => c.remove());
+            layers = [];
+
+            const canvas = document.createElement('canvas');
+            canvas.className = 'layer-canvas';
+            canvas.width = cWidth; canvas.height = cHeight;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(final, 0, 0);
+
+            stack.insertBefore(canvas, document.getElementById('onion-canvas'));
+            layers.push({ canvas, ctx, visible: true, opacity: 100, name: 'Capa Unida', blendMode: 'normal' });
+            selectLayer(0);
+            saveUndo();
+            captureTimelapseFrame();
+            drawOnionSkin();
+        }
+
+        function changeBlendMode(i, val) {
+            layers[i].blendMode = val;
+            layers[i].canvas.style.mixBlendMode = val;
+        }
+
+        function selectLayer(i) {
+            if(!layers[i]) return;
+            activeLayerIndex = i;
+            renderLayerUI();
+        }
+
+        function toggleVisibility(i) {
+            layers[i].visible = !layers[i].visible;
+            layers[i].canvas.classList.toggle('hidden-layer', !layers[i].visible);
+            renderLayerUI();
+        }
+
+        function deleteLayer(i) {
+            if(layers.length <= 1 || i === 0) return;
+            stack.removeChild(layers[i].canvas);
+            layers.splice(i, 1);
+            if(activeLayerIndex >= layers.length) activeLayerIndex = layers.length - 1;
+            else if(activeLayerIndex === i) activeLayerIndex = Math.max(0, i - 1);
+            renderLayerUI();
+        }
+
+        function changeOpacity(i, val) {
+            layers[i].opacity = val;
+            layers[i].canvas.style.opacity = val / 100;
+        }
+        document.getElementById('imgUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0]; if(!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                const img = new Image();
+                img.onload = () => { 
+                    // Calcular un tamaño inicial para que no desborde la pantalla
+                    const ratio = Math.min((cWidth * 0.8) / img.width, (cHeight * 0.8) / img.height, 1);
+                    const w = img.width * ratio;
+                    const h = img.height * ratio;
+                    
+                    // Crear el canvas del portapapeles con la imagen
+                    clipboardCanvas = document.createElement('canvas');
+                    clipboardCanvas.width = w; clipboardCanvas.height = h;
+                    const cCtx = clipboardCanvas.getContext('2d');
+                    cCtx.drawImage(img, 0, 0, w, h);
+                    
+                    // Posicionarlo en el centro
+                    clipboardOffsetX = (cWidth - w) / 2;
+                    clipboardOffsetY = (cHeight - h) / 2;
+                    
+                    // Crear una nueva capa para esta imagen y activar la herramienta Pegar
+                    addLayer(); 
+                    document.getElementById('btnPaste').click();
+                }
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file); this.value = null;
+        });
+
+    
+        function getWorldPos(e) {
+            const rect = viewport.getBoundingClientRect();
+            return { x: (e.clientX - rect.left - offsetX) / scale, y: (e.clientY - rect.top - offsetY) / scale };
+        }
+
+        function updateTransform() { stack.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`; }
+
+        viewport.addEventListener('pointerdown', e => {
+            if (document.getElementById('paste-box')) return; 
+            if (isPlaying) return;
+
+            evCache.push(e);
+            
+            if (useStylus && e.pointerType === 'pen') {
+                currentPressure = e.pressure || 1;
+            } else {
+                currentPressure = 1;
+            }
+
+            if (evCache.length === 1 && layers[activeLayerIndex] && layers[activeLayerIndex].visible) {
+                const pos = getWorldPos(e);
+                
+                if (isEyedropper) { 
+                    isPickingColor = true;
+                    updateLoupe(e, pos);
+                    return; 
+                }
+                if (isBucket) { saveUndo(); floodFill(Math.round(pos.x), Math.round(pos.y)); captureTimelapseFrame(); drawOnionSkin(); return; }
+                
+                if (isLasso) {
+                    lassoPath = [{x: pos.x, y: pos.y}];
+                    isDrawing = true;
+                    return;
+                }
+                
+                isDrawing = true;
+                startX = pos.x; startY = pos.y; currentX = pos.x; currentY = pos.y;
+                if(drawModeEl.value === 'free') { 
+                    saveUndo(); 
+                    if(brushTypeEl.value === 'custom') {
+                        prepareCustomBrushTint();
+                        applySymmetry(pos.x, pos.y, (sx, sy) => {
+                            drawCustomBrush(layers[activeLayerIndex].ctx, sx, sy, sx, sy);
+                        });
+                    } else {
+                        draw(pos.x, pos.y); 
+                    }
+                }
+            }
+        });
+
+        viewport.addEventListener('pointermove', e => {
+            if(isPlaying) return;
+            const index = evCache.findIndex(ev => ev.pointerId === e.pointerId);
+            if (index !== -1) evCache[index] = e;
+
+            if (useStylus && e.pointerType === 'pen' && isDrawing && drawModeEl.value === 'free') {
+                currentPressure = e.pressure || 1;
+            }
+
+            if (evCache.length === 2) {
+                if(isDrawing) { isDrawing = false; drawRulerGuides(); }
+                
+                const p1 = evCache[0], p2 = evCache[1];
+                const curMid = { x: (p1.clientX + p2.clientX)/2, y: (p1.clientY + p2.clientY)/2 };
+                const curDiff = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
+                
+                if (prevDiff > 0) {
+                    const zoomFactor = curDiff / prevDiff;
+                    const newScale = Math.min(Math.max(0.1, scale * zoomFactor), 10);
+                    const rect = viewport.getBoundingClientRect();
+                    const mouseWorldX = (curMid.x - rect.left - offsetX) / scale;
+                    const mouseWorldY = (curMid.y - rect.top - offsetY) / scale;
+                    offsetX += curMid.x - prevMid.x - mouseWorldX * (newScale - scale);
+                    offsetY += curMid.y - prevMid.y - mouseWorldY * (newScale - scale);
+                    scale = newScale;
+                }
+                prevDiff = curDiff; prevMid = curMid;
+                updateTransform();
+            } else if (evCache.length === 1) {
+                const pos = getWorldPos(e);
+                
+                if (isPickingColor) {
+                    updateLoupe(e, pos);
+                    return;
+                }
+
+                if (isDrawing) {
+                    if (isLasso) {
+                        lassoPath.push({x: pos.x, y: pos.y});
+                        drawLassoPreview(false);
+                        return;
+                    }
+
+                    const mode = drawModeEl.value; 
+                    if (mode === 'free') { 
+                        const stabLevel = parseInt(document.getElementById('stabilizer').value) || 0;
+                        let targetX = pos.x, targetY = pos.y;
+                        
+                        if (stabLevel > 0) {
+                            let factor = 1.0 - (stabLevel / 100.0);
+                            targetX = currentX + (pos.x - currentX) * factor;
+                            targetY = currentY + (pos.y - currentY) * factor;
+                        }
+
+                        if(brushTypeEl.value === 'custom' && !isEraser) { 
+                            applySymmetry(targetX, targetY, (sx, sy) => {
+                                let originX = currentX; let originY = currentY;
+                                if(sx !== targetX) originX = cWidth - currentX;
+                                if(sy !== targetY) originY = cHeight - currentY;
+                                drawCustomBrush(layers[activeLayerIndex].ctx, originX, originY, sx, sy);
+                            });
+                        } else {
+                            draw(targetX, targetY); 
+                        }
+                        currentX = targetX; currentY = targetY; 
+                    } 
+                    else { drawShape(pos.x, pos.y, mode, true); } 
+                }
+            }
+        });
+
+        const stopInteraction = e => {
+            if(isPlaying) return;
+            if (isPickingColor) {
+                isPickingColor = false;
+                document.getElementById('color-loupe').style.display = 'none';
+                
+                const pos = getWorldPos(e);
+                const hex = getColorAt(Math.round(pos.x), Math.round(pos.y));
+                if(hex) {
+                    colorPickerEl.value = hex;
+                    document.getElementById('btnEyedropper').classList.remove('active');
+                    isEyedropper = false;
+                    renderPalette();
+                }
+                evCache = evCache.filter(ev => ev.pointerId !== e.pointerId);
+                return;
+            }
+
+            evCache = evCache.filter(ev => ev.pointerId !== e.pointerId);
+            if (evCache.length < 2) { prevDiff = -1; prevMid = null; }
+            if (isDrawing) {
+                if (isLasso) {
+                    drawLassoPreview(true);
+                    isDrawing = false;
+                    return;
+                }
+
+                const mode = drawModeEl.value;
+                if(mode !== 'free') { 
+                    saveUndo(); 
+                    drawShape(getWorldPos(e).x, getWorldPos(e).y, mode, false); 
+                }
+                isDrawing = false;
+                drawRulerGuides();
+                captureTimelapseFrame(); 
+            }
+            currentPressure = 1.0;
+        };
+
+        viewport.addEventListener('pointerup', stopInteraction);
+        viewport.addEventListener('pointercancel', stopInteraction);
+
+        function applyBrushStyle(ctx) {
+            let size = parseInt(brushSizeEl.value);
+            if (useStylus && drawModeEl.value === 'free' && !isEraser) {
+                size = Math.max(1, size * currentPressure * 1.5); 
+            }
+
+            const color = colorPickerEl.value;
+            const type = brushTypeEl.value;
+            
+            ctx.lineWidth = size;
+            ctx.lineCap = 'round'; 
+            ctx.lineJoin = 'round';
+            ctx.globalCompositeOperation = isEraser ? 'destination-out' : (isAlphaLock ? 'source-atop' : 'source-over');
+            
+            ctx.globalAlpha = 1.0;
+            ctx.shadowBlur = 0;
+            ctx.setLineDash([]); 
+            
+            if(!isEraser) {
+                ctx.strokeStyle = color;
+                if (type === 'marcador') { ctx.globalAlpha = 0.4; }
+                else if (type === 'delineado') { ctx.shadowBlur = Math.max(1, size * 0.15); ctx.shadowColor = 'rgba(0,0,0,0.6)'; }
+                else if (type === 'pincel') { ctx.shadowBlur = size * 0.8; ctx.shadowColor = color; ctx.globalAlpha = 0.8 * currentPressure; }
+                else if (type === 'lapicera') { ctx.lineWidth = Math.max(1, size / 3); }
+                else if (type === 'aerografo') { ctx.shadowBlur = size * 2; ctx.shadowColor = color; ctx.globalAlpha = 0.15 * currentPressure; }
+                else if (type === 'neon') { ctx.strokeStyle = '#ffffff'; ctx.shadowBlur = size * 1.5; ctx.shadowColor = color; ctx.lineWidth = Math.max(1, size * 0.4); }
+                else if (type === 'acuarela') { ctx.globalAlpha = 0.05 * currentPressure; ctx.shadowBlur = size; ctx.shadowColor = color; }
+                else if (type === 'resaltador') { ctx.globalAlpha = 0.4; ctx.globalCompositeOperation = isAlphaLock ? 'source-atop' : 'multiply'; ctx.lineCap = 'square'; }
+                else if (type === 'tiza') { ctx.globalAlpha = 0.9; ctx.setLineDash([size * 0.2, size * 0.8]); }
+                else if (type === 'cincel') { ctx.lineCap = 'square'; } 
+            } else {
+                ctx.strokeStyle = "#FFF"; 
+            }
+            ctx.fillStyle = ctx.strokeStyle; 
+        }
+
+        function draw(x, y) {
+            const ctx = layers[activeLayerIndex].ctx;
+            applyBrushStyle(ctx);
+            
+            const type = brushTypeEl.value;
+            
+            applySymmetry(x, y, (sx, sy) => {
+                let originX = currentX; let originY = currentY;
+                if(sx !== x) originX = cWidth - currentX;
+                if(sy !== y) originY = cHeight - currentY;
+                
+                if (!isEraser && (type === 'pluma' || type === 'caligrafia' || type === 'cincel')) {
+                    let dist = Math.hypot(sx - originX, sy - originY);
+                    let angle = Math.atan2(sy - originY, sx - originX);
+                    let brushSize = parseInt(brushSizeEl.value);
+                    if (useStylus) brushSize = Math.max(1, brushSize * currentPressure * 1.5);
+                    
+                    if (dist === 0) dist = 1; 
+                    
+                    let step = Math.max(0.5, brushSize * 0.1); 
+                    for(let i=0; i<=dist; i+=step) {
+                        let cx = originX + Math.cos(angle)*i;
+                        let cy = originY + Math.sin(angle)*i;
+                        
+                        ctx.beginPath();
+                        if (type === 'pluma') {
+                            ctx.ellipse(cx, cy, brushSize, Math.max(1, brushSize * 0.15), -Math.PI/4, 0, Math.PI*2);
+                        } else if (type === 'caligrafia') {
+                            ctx.ellipse(cx, cy, brushSize, Math.max(1, brushSize * 0.05), -Math.PI/6, 0, Math.PI*2);
+                        } else if (type === 'cincel') {
+                            ctx.save();
+                            ctx.translate(cx, cy);
+                            ctx.rotate(-Math.PI/4);
+                            ctx.fillRect(-brushSize/2, -brushSize*0.1, brushSize, Math.max(1, brushSize*0.2));
+                            ctx.restore();
+                            continue; 
+                        }
+                        ctx.fill();
+                    }
+                } else {
+                    ctx.beginPath(); 
+                    ctx.moveTo(originX, originY); 
+                    ctx.lineTo(sx, sy); 
+                    ctx.stroke();
+                }
+            });
+        }
+
+        function drawShape(x, y, mode, isPreview) {
+            const ctx = isPreview ? previewCtx : layers[activeLayerIndex].ctx;
+            if(isPreview) { previewCtx.clearRect(0,0,cWidth,cHeight); drawRulerGuides(); }
+            
+            applyBrushStyle(ctx);
+            if(isPreview && isEraser) ctx.strokeStyle = "#000"; 
+            
+            applySymmetry(x, y, (sx, sy) => {
+                let originStartX = startX; let originStartY = startY;
+                if(sx !== x) originStartX = cWidth - startX;
+                if(sy !== y) originStartY = cHeight - startY;
+
+                ctx.beginPath();
+                if (mode === 'line') { 
+                    ctx.moveTo(originStartX, originStartY); ctx.lineTo(sx, sy); 
+                } 
+                else if (mode === 'circle') { 
+                    ctx.arc(originStartX, originStartY, Math.hypot(sx-originStartX, sy-originStartY), 0, Math.PI*2); 
+                }
+                else if (mode === 'rect') {
+                    ctx.rect(originStartX, originStartY, sx - originStartX, sy - originStartY);
+                }
+                else if (mode === 'triangle') {
+                    ctx.moveTo(originStartX + (sx-originStartX)/2, originStartY);
+                    ctx.lineTo(sx, sy);
+                    ctx.lineTo(originStartX, sy);
+                    ctx.closePath();
+                }
+                ctx.stroke();
+            });
+            
+            if(!isPreview) { previewCtx.clearRect(0,0,cWidth,cHeight); drawRulerGuides(); }
+        }
+
+        function checkBrushType() {
+            const t = brushTypeEl.value;
+            const btn = document.getElementById('btnCreateBrush');
+            if(t === 'custom') { 
+                btn.style.display = 'inline-block';
+                if(savedBrushesArr.length === 0) {
+                    openCustomBrushModal(); 
+                } else if(activeCustomBrushId === null) {
+                    selectCustomBrush(savedBrushesArr[0].id);
+                }
+            } 
+            else { 
+                btn.style.display = 'none'; 
+            }
+            resetTools();
+        }
+
+        function openCustomBrushModal() {
+            document.getElementById('custom-brush-modal').style.display = 'block';
+            document.getElementById('modal-overlay').style.display = 'block';
+            renderBrushes();
+        }
+        function closeCustomBrushModal() {
+            document.getElementById('custom-brush-modal').style.display = 'none';
+            document.getElementById('modal-overlay').style.display = 'none';
+        }
+
+        const cbCanvas = document.getElementById('brush-maker');
+        const cbCtx = cbCanvas.getContext('2d');
+        let cbDrawing = false, cbX, cbY;
+
+        function changeBrushMakerSize() {
+            const size = parseInt(document.getElementById('cbSizePreset').value);
+            cbCanvas.width = size;
+            cbCanvas.height = size;
+            clearCustomBrush();
+        }
+
+        cbCanvas.addEventListener('pointerdown', e => { 
+            cbDrawing = true; 
+            const rect = cbCanvas.getBoundingClientRect();
+            const scaleX = cbCanvas.width / rect.width;
+            const scaleY = cbCanvas.height / rect.height;
+            cbX = (e.clientX - rect.left) * scaleX; 
+            cbY = (e.clientY - rect.top) * scaleY;
+            cbCtx.fillStyle = "black"; cbCtx.beginPath(); cbCtx.arc(cbX, cbY, Math.max(2, cbCanvas.width*0.02), 0, Math.PI*2); cbCtx.fill();
+        });
+        cbCanvas.addEventListener('pointermove', e => {
+            if(!cbDrawing) return;
+            const rect = cbCanvas.getBoundingClientRect();
+            const scaleX = cbCanvas.width / rect.width;
+            const scaleY = cbCanvas.height / rect.height;
+            const nx = (e.clientX - rect.left) * scaleX; 
+            const ny = (e.clientY - rect.top) * scaleY;
+            cbCtx.strokeStyle = "black"; cbCtx.lineWidth = Math.max(4, cbCanvas.width*0.04); cbCtx.lineCap = "round";
+            cbCtx.beginPath(); cbCtx.moveTo(cbX, cbY); cbCtx.lineTo(nx, ny); cbCtx.stroke();
+            cbX = nx; cbY = ny;
+        });
+        cbCanvas.addEventListener('pointerup', () => cbDrawing = false);
+        cbCanvas.addEventListener('pointercancel', () => cbDrawing = false);
+
+        function clearCustomBrush() {
+            cbCtx.clearRect(0,0, cbCanvas.width, cbCanvas.height);
+        }
+
+        function saveCustomBrush() {
+            const imgData = cbCtx.getImageData(0,0, cbCanvas.width, cbCanvas.height);
+            let minX = cbCanvas.width, minY = cbCanvas.height, maxX = 0, maxY = 0;
+            let hasPixels = false;
+            
+            for(let y=0; y<cbCanvas.height; y++) {
+                for(let x=0; x<cbCanvas.width; x++) {
+                    const alpha = imgData.data[(y*cbCanvas.width + x)*4 + 3];
+                    if(alpha > 10) {
+                        hasPixels = true;
+                        if(x < minX) minX = x;
+                        if(x > maxX) maxX = x;
+                        if(y < minY) minY = y;
+                        if(y > maxY) maxY = y;
+                    }
+                }
+            }
+            
+            if(!hasPixels) { alert("Dibuja una punta primero para guardar tu pincel."); return; }
+            
+            const pad = 2; 
+            minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+            maxX = Math.min(cbCanvas.width, maxX + pad); maxY = Math.min(cbCanvas.height, maxY + pad);
+            
+            const cropW = maxX - minX;
+            const cropH = maxY - minY;
+            const cropCanvas = document.createElement('canvas');
+            cropCanvas.width = cropW; cropCanvas.height = cropH;
+            cropCanvas.getContext('2d').putImageData(cbCtx.getImageData(minX, minY, cropW, cropH), 0, 0);
+
+            const dataUrl = cropCanvas.toDataURL();
+            const baseBehavior = document.getElementById('customBrushBase').value;
+            const spacingVal = parseInt(document.getElementById('cbSpacing').value);
+            const newId = Date.now();
+
+            const newBrush = {
+                id: newId,
+                src: dataUrl,
+                base: baseBehavior,
+                spacing: spacingVal
+            };
+
+            savedBrushesArr.unshift(newBrush);
+
+            try {
+                localStorage.setItem('studioBrushes', JSON.stringify(savedBrushesArr));
+            } catch(e) {
+                alert("¡Límite de memoria alcanzado! Intenta borrar otros pinceles antiguos antes de guardar uno nuevo.");
+                savedBrushesArr.shift(); 
+                return;
+            }
+
+            clearCustomBrush();
+            selectCustomBrush(newId);
+        }
+
+        function selectCustomBrush(id) {
+            const brush = savedBrushesArr.find(b => b.id === id);
+            if(!brush) return;
+            
+            activeCustomBrushId = id;
+            customBrushImg = new Image();
+            customBrushImg.src = brush.src;
+            customBrushImg.onload = () => { 
+                lastTintHex = ""; 
+                brushTypeEl.value = 'custom';
+                checkBrushType();
+                renderBrushes();
+            };
+        }
+
+        function renderBrushes() {
+            const container = document.getElementById('savedBrushes');
+            container.innerHTML = "";
+            
+            savedBrushesArr.forEach(brush => {
+                const div = document.createElement('div');
+                div.className = "brush-swatch";
+                if(brush.id === activeCustomBrushId) div.classList.add('active-brush');
+                div.style.backgroundImage = `url(${brush.src})`;
+                div.onclick = () => selectCustomBrush(brush.id);
+                
+                const delBtn = document.createElement('button');
+                delBtn.className = "delete-brush-btn";
+                delBtn.innerHTML = "✖";
+                delBtn.onclick = (e) => deleteCustomBrush(brush.id, e);
+                
+                div.appendChild(delBtn);
+                container.appendChild(div);
+            });
+        }
+
+        function deleteCustomBrush(id, event) {
+            event.stopPropagation();
+            savedBrushesArr = savedBrushesArr.filter(b => b.id !== id);
+            
+            localStorage.setItem('studioBrushes', JSON.stringify(savedBrushesArr));
+
+            if(activeCustomBrushId === id) {
+                if(savedBrushesArr.length > 0) {
+                    selectCustomBrush(savedBrushesArr[0].id);
+                } else {
+                    activeCustomBrushId = null;
+                    customBrushImg = null;
+                    brushTypeEl.value = 'lapiz';
+                    checkBrushType();
+                }
+            }
+            renderBrushes();
+        }
+
+        function prepareCustomBrushTint() {
+            if(!customBrushImg) return;
+            const color = colorPickerEl.value;
+            if(customBrushTinted && lastTintHex === color) return; 
+            
+            const tCanvas = document.createElement('canvas');
+            tCanvas.width = customBrushImg.width; tCanvas.height = customBrushImg.height;
+            const tCtx = tCanvas.getContext('2d');
+            tCtx.drawImage(customBrushImg, 0, 0);
+            tCtx.globalCompositeOperation = 'source-in';
+            tCtx.fillStyle = color;
+            tCtx.fillRect(0,0, tCanvas.width, tCanvas.height);
+            
+            customBrushTinted = tCanvas;
+            lastTintHex = color;
+        }
+
+        
+        function saveCurrentColor() {
+            const hex = colorPickerEl.value.toUpperCase();
+            if(savedColorsArr.includes(hex)) return;
+            
+            savedColorsArr.unshift(hex); 
+            localStorage.setItem('studioColors', JSON.stringify(savedColorsArr));
+            renderPalette();
+        }
+                function drawCustomBrush(ctx, x1, y1, x2, y2) {
+            if(isEraser) { draw(x2, y2); return; } 
+            if(!customBrushTinted) { draw(x2, y2); return; } 
+            
+            let size = parseInt(brushSizeEl.value);
+            if (useStylus) size = Math.max(1, size * currentPressure * 1.5); 
+
+            const color = colorPickerEl.value;
+            const dist = Math.hypot(x2-x1, y2-y1);
+            const angle = Math.atan2(y2-y1, x2-x1);
+            
+            let currentBrush = savedBrushesArr.find(b => b.id === activeCustomBrushId);
+            let baseType = currentBrush ? currentBrush.base : 'lapiz';
+            
+            // Cargar los nuevos ajustes o usar valores por defecto para pinceles viejos
+            let spacingPercent = currentBrush && currentBrush.spacing !== undefined ? currentBrush.spacing : 35;
+            let customOpacity = currentBrush && currentBrush.opacity !== undefined ? currentBrush.opacity / 100 : 1.0;
+            let customHardness = currentBrush && currentBrush.hardness !== undefined ? currentBrush.hardness : 100;
+            let customShape = currentBrush && currentBrush.shape !== undefined ? currentBrush.shape / 100 : 1.0;
+            
+            const spacing = Math.max(1, size * (spacingPercent / 100)); 
+            
+            ctx.globalAlpha = customOpacity;
+            ctx.globalCompositeOperation = isAlphaLock ? 'source-atop' : 'source-over';
+            
+            // Aplicar dureza (sombras difuminadas)
+            ctx.shadowBlur = ((100 - customHardness) / 100) * (size * 1.5);
+            ctx.shadowColor = ctx.shadowBlur > 0 ? color : 'transparent';
+
+            // Mezclar comportamientos base con las opacidades customizadas
+            if (baseType === 'marcador') { ctx.globalAlpha = customOpacity * 0.4; }
+            else if (baseType === 'delineado') { ctx.shadowBlur = Math.max(1, size * 0.15); ctx.shadowColor = 'rgba(0,0,0,0.6)'; }
+            else if (baseType === 'pincel') { ctx.shadowBlur = size * 0.8 + ctx.shadowBlur; ctx.shadowColor = color; ctx.globalAlpha = customOpacity * 0.8 * currentPressure; }
+            else if (baseType === 'aerografo') { ctx.shadowBlur = size * 2 + ctx.shadowBlur; ctx.shadowColor = color; ctx.globalAlpha = customOpacity * 0.15 * currentPressure; }
+            else if (baseType === 'neon') { ctx.shadowBlur = size * 1.5 + ctx.shadowBlur; ctx.shadowColor = color; }
+            else if (baseType === 'acuarela') { ctx.globalAlpha = customOpacity * 0.05 * currentPressure; ctx.shadowBlur = size + ctx.shadowBlur; ctx.shadowColor = color; }
+            else if (baseType === 'resaltador') { ctx.globalAlpha = customOpacity * 0.4; ctx.globalCompositeOperation = isAlphaLock ? 'source-atop' : 'multiply'; }
+            
+            if(dist === 0) { 
+                ctx.save();
+                ctx.translate(x1, y1);
+                ctx.scale(1, customShape);
+                ctx.drawImage(customBrushTinted, -size/2, -size/2, size, size);
+                ctx.restore();
+            } else {
+                for(let i=0; i<dist; i+=spacing) {
+                    const cx = x1 + Math.cos(angle)*i;
+                    const cy = y1 + Math.sin(angle)*i;
+                    ctx.save();
+                    ctx.translate(cx, cy);
+                    ctx.scale(1, customShape); // Aplica la compresión a la punta
+                    ctx.drawImage(customBrushTinted, -size/2, -size/2, size, size);
+                    ctx.restore();
+                }
+            }
+
+            // Resetear para que no afecte a otras herramientas
+            ctx.globalAlpha = 1.0;
+            ctx.shadowBlur = 0;
+            ctx.globalCompositeOperation = isAlphaLock ? 'source-atop' : 'source-over';
+        }
+
+        function deleteColor(hex, event) {
+            event.stopPropagation(); 
+            savedColorsArr = savedColorsArr.filter(c => c !== hex);
+            localStorage.setItem('studioColors', JSON.stringify(savedColorsArr));
+            renderPalette();
+        }
+        
+        function renderPalette() {
+            const container = document.getElementById('savedColors');
+            container.innerHTML = "";
+            const currentHex = colorPickerEl.value.toUpperCase();
+            
+            savedColorsArr.forEach(color => {
+                const div = document.createElement('div');
+                div.className = "color-swatch";
+                if(color === currentHex) div.classList.add('active-color');
+                div.style.backgroundColor = color;
+                div.onclick = () => {
+                    colorPickerEl.value = color;
+                    resetTools();
+                    renderPalette(); 
+                };
+                
+                const delBtn = document.createElement('button');
+                delBtn.className = "delete-color-btn";
+                delBtn.innerHTML = "✖";
+                delBtn.onclick = (e) => deleteColor(color, e);
+                
+                div.appendChild(delBtn);
+                container.appendChild(div);
+            });
+        }
+        
+        colorPickerEl.addEventListener('input', () => {
+            resetTools();
+            renderPalette(); 
+        });
+
+        function getColorAt(x, y) {
+            if(x < 0 || x >= cWidth || y < 0 || y >= cHeight) return null;
+            
+            tempColorCtx.fillStyle = "white";
+            tempColorCtx.fillRect(0,0,1,1);
+            
+            layers.forEach(l => {
+                if(l.visible) {
+                    tempColorCtx.globalAlpha = l.opacity / 100;
+                    tempColorCtx.globalCompositeOperation = l.blendMode === 'normal' || !l.blendMode ? 'source-over' : l.blendMode;
+                    tempColorCtx.drawImage(l.canvas, -x, -y);
+                }
+            });
+            tempColorCtx.globalCompositeOperation = 'source-over';
+            
+            const pixel = tempColorCtx.getImageData(0,0,1,1).data;
+            return "#" + ((1 << 24) + (pixel[0] << 16) + (pixel[1] << 8) + pixel[2]).toString(16).slice(1).toUpperCase();
+        }
+
+        function updateLoupe(e, pos) {
+            const loupe = document.getElementById('color-loupe');
+            loupe.style.display = 'block';
+            loupe.style.left = e.clientX + 'px';
+            loupe.style.top = e.clientY + 'px';
+            
+            const hex = getColorAt(Math.round(pos.x), Math.round(pos.y));
+            if(hex) {
+                loupe.style.backgroundColor = hex;
+            }
+        }
+
+        function floodFill(startX, startY) {
+    if (startX < 0 || startX >= cWidth || startY < 0 || startY >= cHeight) return;
+    
+    // 1. Crear un lienzo temporal para "leer" todas las capas visibles (como hace Ibis Paint)
+    const compositeCanvas = document.createElement('canvas');
+    compositeCanvas.width = cWidth; compositeCanvas.height = cHeight;
+    const compCtx = compositeCanvas.getContext('2d', { willReadFrequently: true });
+    
+    // Dibujar todas las capas visibles en el lienzo temporal
+    layers.forEach(l => {
+        if(l.visible) {
+            compCtx.globalAlpha = l.opacity / 100;
+            compCtx.globalCompositeOperation = l.blendMode === 'normal' || !l.blendMode ? 'source-over' : l.blendMode;
+            compCtx.drawImage(l.canvas, 0, 0);
+        }
+    });
+
+    const compImgData = compCtx.getImageData(0, 0, cWidth, cHeight);
+    const compData = compImgData.data;
+
+    // 2. Preparar la capa activa (donde realmente se va a pintar)
+    const activeCtx = layers[activeLayerIndex].ctx;
+    const activeImgData = activeCtx.getImageData(0, 0, cWidth, cHeight);
+    const activeData = activeImgData.data;
+
+    const startPos = (startY * cWidth + startX) * 4;
+    const tR = compData[startPos], tG = compData[startPos+1], tB = compData[startPos+2], tA = compData[startPos+3];
+    
+    const hex = colorPickerEl.value;
+    const fR = parseInt(hex.slice(1,3), 16), fG = parseInt(hex.slice(3,5), 16), fB = parseInt(hex.slice(5,7), 16), fA = 255;
+    
+    // Si el color ya es el mismo, cancelar
+    if (tR === fR && tG === fG && tB === fB && tA === fA) return;
+
+    const queue = [[startX, startY]];
+    
+    while(queue.length) {
+        const [x, y] = queue.pop();
+        let p = (y * cWidth + x) * 4;
+        let curY = y;
+        
+        // Buscar hacia arriba usando la imagen combinada
+        while(curY >= 0 && matchColor(compData, p, tR, tG, tB, tA)) { curY--; p -= cWidth * 4; }
+        curY++; p += cWidth * 4;
+        
+        let reachLeft = false, reachRight = false;
+        
+        while(curY < cHeight && matchColor(compData, p, tR, tG, tB, tA)) {
+            // Rellenar en la capa temporal (para no volver a visitarlo)
+            compData[p] = fR; compData[p+1] = fG; compData[p+2] = fB; compData[p+3] = fA;
+            // Rellenar en la capa activa real
+            activeData[p] = fR; activeData[p+1] = fG; activeData[p+2] = fB; activeData[p+3] = fA;
+            
+            if(x > 0) {
+                if(matchColor(compData, p - 4, tR, tG, tB, tA)) {
+                    if(!reachLeft) { queue.push([x - 1, curY]); reachLeft = true; }
+                } else if(reachLeft) { reachLeft = false; }
+            }
+            if(x < cWidth - 1) {
+                if(matchColor(compData, p + 4, tR, tG, tB, tA)) {
+                    if(!reachRight) { queue.push([x + 1, curY]); reachRight = true; }
+                } else if(reachRight) { reachRight = false; }
+            }
+            curY++; p += cWidth * 4;
+        }
+    }
+    // Escribir los píxeles reales solo en la capa activa
+    activeCtx.putImageData(activeImgData, 0, 0);
+}
+
+
+        function matchColor(data, pos, r, g, b, a) {
+            // Nivel de tolerancia (de 0 a 255). 80 es un buen equilibrio para comerse el borde blanco.
+            const tol = 80; 
+            return Math.abs(data[pos] - r) <= tol &&
+                   Math.abs(data[pos+1] - g) <= tol &&
+                   Math.abs(data[pos+2] - b) <= tol &&
+                   Math.abs(data[pos+3] - a) <= tol;
+        }
+
+    
+        function saveUndo() {
+            if(!layers[activeLayerIndex]) return;
+            undoHistory.push({ idx: activeLayerIndex, data: layers[activeLayerIndex].ctx.getImageData(0,0,cWidth,cHeight) });
+            if(undoHistory.length > 10) undoHistory.shift(); 
+            redoHistory = [];
+        }
+        
+        document.getElementById('btnUndo').onclick = () => {
+            if(!undoHistory.length) return;
+            const last = undoHistory.pop();
+            if(layers[last.idx] && layers[last.idx].canvas.width === last.data.width) {
+                redoHistory.push({ idx: last.idx, data: layers[last.idx].ctx.getImageData(0,0,cWidth,cHeight) });
+                layers[last.idx].ctx.putImageData(last.data, 0,0);
+                captureTimelapseFrame(); 
+                drawOnionSkin();
+            }
+        };
+
+        document.getElementById('btnRedo').onclick = () => {
+            if(!redoHistory.length) return;
+            const next = redoHistory.pop();
+            if(layers[next.idx] && layers[next.idx].canvas.width === next.data.width) {
+                undoHistory.push({ idx: next.idx, data: layers[next.idx].ctx.getImageData(0,0,cWidth,cHeight) });
+                layers[next.idx].ctx.putImageData(next.data, 0,0);
+                captureTimelapseFrame(); 
+                drawOnionSkin();
+            }
+        };
+
+        function openCropModal() {
+            document.getElementById('crop-modal').style.display = 'block';
+            document.getElementById('modal-overlay').style.display = 'block';
+            
+            document.getElementById('cropLeft').value = 0;
+            document.getElementById('cropRight').value = 0;
+            document.getElementById('cropTop').value = 0;
+            document.getElementById('cropBottom').value = 0;
+
+            const previewCanvas = document.getElementById('crop-preview-canvas');
+            const pCtx = previewCanvas.getContext('2d');
+            previewCanvas.width = cWidth;
+            previewCanvas.height = cHeight;
+            
+            pCtx.fillStyle = "white"; pCtx.fillRect(0,0,cWidth,cHeight);
+            layers.forEach(l => {
+                if(l.visible) {
+                    pCtx.globalAlpha = l.opacity / 100;
+                    pCtx.globalCompositeOperation = l.blendMode === 'normal' || !l.blendMode ? 'source-over' : l.blendMode;
+                    pCtx.drawImage(l.canvas, 0, 0);
+                }
+            });
+            pCtx.globalCompositeOperation = 'source-over';
+            drawCropOverlay();
+        }
+
+        function closeCropModal() {
+            document.getElementById('crop-modal').style.display = 'none';
+            document.getElementById('modal-overlay').style.display = 'none';
+        }
+
+        function drawCropOverlay() {
+            let l = parseInt(document.getElementById('cropLeft').value);
+            let r = parseInt(document.getElementById('cropRight').value);
+            let t = parseInt(document.getElementById('cropTop').value);
+            let b = parseInt(document.getElementById('cropBottom').value);
+
+            if (l + r >= 95) { document.getElementById('cropRight').value = 95 - l; r = 95 - l; }
+            if (t + b >= 95) { document.getElementById('cropBottom').value = 95 - t; b = 95 - t; }
+
+            const overlay = document.getElementById('crop-overlay');
+            overlay.style.left = l + '%';
+            overlay.style.top = t + '%';
+            overlay.style.width = (100 - l - r) + '%';
+            overlay.style.height = (100 - t - b) + '%';
+        }
+
+        function applyCrop() {
+            const l = parseInt(document.getElementById('cropLeft').value) / 100;
+            const r = parseInt(document.getElementById('cropRight').value) / 100;
+            const t = parseInt(document.getElementById('cropTop').value) / 100;
+            const b = parseInt(document.getElementById('cropBottom').value) / 100;
+
+            const cropX = Math.round(cWidth * l);
+            const cropY = Math.round(cHeight * t);
+            const newW = Math.round(cWidth * (1 - l - r));
+            const newH = Math.round(cHeight * (1 - t - b));
+
+            if (newW < 10 || newH < 10) { alert("El lienzo quedaría muy pequeño."); return; }
+
+            layers.forEach(layer => {
+                const newCanvas = document.createElement('canvas');
+                newCanvas.className = 'layer-canvas';
+                if (!layer.visible) newCanvas.classList.add('hidden-layer');
+                newCanvas.width = newW;
+                newCanvas.height = newH;
+                newCanvas.style.mixBlendMode = layer.blendMode || 'normal';
+                
+                const newCtx = newCanvas.getContext('2d', { willReadFrequently: true });
+                
+                newCtx.drawImage(layer.canvas, -cropX, -cropY);
+                stack.replaceChild(newCanvas, layer.canvas);
+                layer.canvas = newCanvas;
+                layer.ctx = newCtx;
+                layer.blendMode = layer.blendMode || 'normal';
+            });
+
+            cWidth = newW; cHeight = newH;
+            stack.style.width = `${cWidth}px`; stack.style.height = `${cHeight}px`;
+            previewCanvas.width = cWidth; previewCanvas.height = cHeight;
+            
+            const oCanvas = document.getElementById('onion-canvas');
+            if(oCanvas) { oCanvas.width = cWidth; oCanvas.height = cHeight; }
+
+            undoHistory = []; redoHistory = [];
+
+            scale = Math.min(window.innerWidth / cWidth, window.innerHeight / cHeight) * 0.9;
+            offsetX = (window.innerWidth - (cWidth * scale)) / 2;
+            offsetY = (window.innerHeight - (cHeight * scale)) / 2;
+            updateTransform();
+
+            closeCropModal();
+            drawOnionSkin();
+        }
+
+        document.getElementById('btnSave').onclick = () => {
+            const final = document.createElement('canvas');
+            final.width = cWidth; final.height = cHeight;
+            const fCtx = final.getContext('2d');
+            
+            fCtx.fillStyle = "white"; fCtx.fillRect(0,0,cWidth,cHeight);
+
+            layers.forEach(l => {
+                if(l.visible) {
+                    fCtx.globalAlpha = l.opacity / 100;
+                    fCtx.globalCompositeOperation = l.blendMode === 'normal' || !l.blendMode ? 'source-over' : l.blendMode;
+                    fCtx.drawImage(l.canvas, 0, 0);
+                }
+            });
+            fCtx.globalCompositeOperation = 'source-over';
+            
+            const dataUrl = final.toDataURL('image/png');
+            document.getElementById('export-image').src = dataUrl;
+            document.getElementById('export-modal').style.display = 'block';
+            document.getElementById('modal-overlay').style.display = 'block';
+        };
+
+        document.getElementById('btnDownloadImg').onclick = () => {
+            const dataUrl = document.getElementById('export-image').src;
+            let nameInput = document.getElementById('projectName').value.trim();
+            if (nameInput === "") nameInput = "Dibujo";
+            const uniqueTimestamp = new Date().getTime().toString().slice(-4);
+            const fileName = nameInput + "_" + uniqueTimestamp + ".png";
+
+            const link = document.createElement('a');
+            link.download = fileName;
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        document.getElementById('btnShareImg').onclick = async () => {
+            const dataUrl = document.getElementById('export-image').src;
+            let nameInput = document.getElementById('projectName').value.trim();
+            if (nameInput === "") nameInput = "Dibujo";
+            const uniqueTimestamp = new Date().getTime().toString().slice(-4);
+            const fileName = nameInput + "_" + uniqueTimestamp + ".png";
+
+            try {
+                const res = await fetch(dataUrl);
+                const blob = await res.blob();
+                const file = new File([blob], fileName, { type: 'image/png' });
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({ title: nameInput, files: [file] });
+                } else {
+                    alert("Tu dispositivo no soporta compartir directamente. Mantén presionada la imagen para guardarla.");
+                }
+            } catch (err) {
+                console.log("Error al compartir:", err);
+            }
+        };
+
+        function closeExportModal() {
+            document.getElementById('export-modal').style.display = 'none';
+            document.getElementById('modal-overlay').style.display = 'none';
+            document.getElementById('export-image').src = ""; 
+        }
+
+        function flashBtn(id) {
+            const b = document.getElementById(id);
+            if(!b) return;
+            const oldBg = b.style.backgroundColor;
+            b.style.backgroundColor = '#43b581'; 
+            setTimeout(() => b.style.backgroundColor = oldBg, 300);
+        }
+
+        function drawLassoPreview(closed) {
+            previewCtx.clearRect(0,0,cWidth,cHeight);
+            drawRulerGuides();
+            if(lassoPath.length < 2) return;
+            previewCtx.save();
+            previewCtx.beginPath();
+            previewCtx.moveTo(lassoPath[0].x, lassoPath[0].y);
+            for(let i=1; i<lassoPath.length; i++) previewCtx.lineTo(lassoPath[i].x, lassoPath[i].y);
+            if(closed) previewCtx.closePath();
+            
+            const lw = Math.max(1, 2/scale);
+            previewCtx.lineWidth = lw;
+            previewCtx.setLineDash([lw*4, lw*4]);
+            previewCtx.strokeStyle = 'white';
+            previewCtx.stroke();
+            previewCtx.lineDashOffset = lw*4;
+            previewCtx.strokeStyle = 'black';
+            previewCtx.stroke();
+            previewCtx.restore();
+        }
+
+        document.getElementById('btnLasso').onclick = function() { 
+            if(isLasso) {
+                resetTools(); 
+            } else {
+                resetTools(); 
+                isLasso = true; 
+                this.classList.add('active'); 
+            }
+        };
+
+        function performCopy() {
+            if(lassoPath.length < 3) return false;
+            
+            let minX = cWidth, minY = cHeight, maxX = 0, maxY = 0;
+            lassoPath.forEach(p => {
+                if(p.x < minX) minX = p.x; if(p.x > maxX) maxX = p.x;
+                if(p.y < minY) minY = p.y; if(p.y > maxY) maxY = p.y;
+            });
+            const w = maxX - minX; const h = maxY - minY;
+            if(w <= 0 || h <= 0) return false;
+
+            clipboardCanvas = document.createElement('canvas');
+            clipboardCanvas.width = w; clipboardCanvas.height = h;
+            const cCtx = clipboardCanvas.getContext('2d');
+            
+            cCtx.beginPath();
+            cCtx.moveTo(lassoPath[0].x - minX, lassoPath[0].y - minY);
+            for(let i=1; i<lassoPath.length; i++) cCtx.lineTo(lassoPath[i].x - minX, lassoPath[i].y - minY);
+            cCtx.closePath();
+            cCtx.clip();
+            
+            cCtx.drawImage(layers[activeLayerIndex].canvas, -minX, -minY);
+            clipboardOffsetX = minX; clipboardOffsetY = minY;
+            return true;
+        }
+
+        document.getElementById('btnCut').onclick = () => {
+            if(!performCopy()) return; 
+            
+            saveUndo();
+            const ctx = layers[activeLayerIndex].ctx;
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(lassoPath[0].x, lassoPath[0].y);
+            for(let i=1; i<lassoPath.length; i++) ctx.lineTo(lassoPath[i].x, lassoPath[i].y);
+            ctx.closePath();
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.fillStyle = 'black';
+            ctx.fill();
+            ctx.restore();
+            
+            lassoPath = [];
+            previewCtx.clearRect(0,0,cWidth,cHeight);
+            drawRulerGuides();
+            flashBtn('btnCut');
+            captureTimelapseFrame();
+            drawOnionSkin();
+        };
+
+        document.getElementById('btnTransform').onclick = () => {
+            if (lassoPath.length < 3) {
+                alert("Primero selecciona un área con el Lazo para transformarla.");
+                return;
+            }
+            if(!performCopy()) return; 
+            
+            saveUndo();
+            const ctx = layers[activeLayerIndex].ctx;
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(lassoPath[0].x, lassoPath[0].y);
+            for(let i=1; i<lassoPath.length; i++) ctx.lineTo(lassoPath[i].x, lassoPath[i].y);
+            ctx.closePath();
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.fillStyle = 'black';
+            ctx.fill();
+            ctx.restore();
+            
+            lassoPath = [];
+            previewCtx.clearRect(0,0,cWidth,cHeight);
+            drawRulerGuides();
+            
+            document.getElementById('btnPaste').click();
+        };
+
+        document.getElementById('btnPaste').onclick = () => {
+            if(!clipboardCanvas) return;
+            if(document.getElementById('paste-box')) return;
+
+            clipboardOffsetX += 20; clipboardOffsetY += 20; 
+            let currentRot = 0; 
+
+            const pasteBox = document.createElement('div');
+            pasteBox.id = 'paste-box';
+            pasteBox.style.left = clipboardOffsetX + 'px';
+            pasteBox.style.top = clipboardOffsetY + 'px';
+            pasteBox.style.width = clipboardCanvas.width + 'px';
+            pasteBox.style.height = clipboardCanvas.height + 'px';
+            pasteBox.style.transform = `rotate(${currentRot}rad)`;
+
+            const img = document.createElement('canvas');
+            img.width = clipboardCanvas.width;
+            img.height = clipboardCanvas.height;
+            img.getContext('2d').drawImage(clipboardCanvas, 0, 0);
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.pointerEvents = 'none';
+            pasteBox.appendChild(img);
+
+            const handle = document.createElement('div');
+            handle.className = 'paste-handle';
+            pasteBox.appendChild(handle);
+
+            const rotateHandle = document.createElement('div');
+            rotateHandle.className = 'rotate-handle';
+            pasteBox.appendChild(rotateHandle);
+
+            const actions = document.createElement('div');
+            actions.className = 'paste-actions';
+            
+            const btnOk = document.createElement('button');
+            btnOk.innerHTML = '✅';
+            btnOk.style.background = '#43b581';
+            btnOk.onclick = (e) => {
+                e.stopPropagation();
+                saveUndo();
+                const ctx = layers[activeLayerIndex].ctx;
+                const finalX = parseFloat(pasteBox.style.left);
+                const finalY = parseFloat(pasteBox.style.top);
+                const finalW = parseFloat(pasteBox.style.width);
+                const finalH = parseFloat(pasteBox.style.height);
+                
+                ctx.save();
+                ctx.translate(finalX + finalW/2, finalY + finalH/2);
+                ctx.rotate(currentRot);
+                ctx.drawImage(clipboardCanvas, -finalW/2, -finalH/2, finalW, finalH);
+                ctx.restore();
+                
+                pasteBox.remove();
+                flashBtn('btnPaste');
+                captureTimelapseFrame();
+                drawOnionSkin();
+            };
+
+            const btnCancel = document.createElement('button');
+            btnCancel.innerHTML = '❌';
+            btnCancel.style.background = '#ed4245';
+            btnCancel.onclick = (e) => {
+                e.stopPropagation();
+                pasteBox.remove();
+            };
+
+            actions.appendChild(btnOk);
+            actions.appendChild(btnCancel);
+            pasteBox.appendChild(actions);
+
+            document.getElementById('canvas-stack').appendChild(pasteBox);
+
+            pasteBox.addEventListener('pointerdown', (e) => {
+                e.stopPropagation(); 
+                let startClientX = e.clientX;
+                let startClientY = e.clientY;
+                let startLeft = parseFloat(pasteBox.style.left);
+                let startTop = parseFloat(pasteBox.style.top);
+                let startW = parseFloat(pasteBox.style.width);
+                let startH = parseFloat(pasteBox.style.height);
+                
+                let isResizing = (e.target === handle);
+                let isRotating = (e.target === rotateHandle);
+                let isDragging = !isResizing && !isRotating && e.target !== btnOk && e.target !== btnCancel;
+
+                let centerX, centerY;
+                if (isRotating) {
+                    const rect = pasteBox.getBoundingClientRect();
+                    centerX = rect.left + rect.width / 2;
+                    centerY = rect.top + rect.height / 2;
+                }
+
+                if(!isDragging && !isResizing && !isRotating) return;
+
+                const onMove = (ev) => {
+                    ev.preventDefault();
+                    
+                    if (isRotating) {
+                        const angle = Math.atan2(ev.clientY - centerY, ev.clientX - centerX);
+                        currentRot = angle + Math.PI / 2;
+                        pasteBox.style.transform = `rotate(${currentRot}rad)`;
+                    } else {
+                        const dx = (ev.clientX - startClientX) / scale;
+                        const dy = (ev.clientY - startClientY) / scale;
+                        if (isDragging) {
+                            pasteBox.style.left = (startLeft + dx) + 'px';
+                            pasteBox.style.top = (startTop + dy) + 'px';
+                        } else if (isResizing) {
+                            const newW = Math.max(10, startW + dx);
+                            const newH = Math.max(10, startH + dy);
+                            pasteBox.style.width = newW + 'px';
+                            pasteBox.style.height = newH + 'px';
+                        }
+                    }
+                };
+
+                const onUp = () => {
+                    window.removeEventListener('pointermove', onMove);
+                    window.removeEventListener('pointerup', onUp);
+                };
+
+                window.addEventListener('pointermove', onMove, {passive: false});
+                window.addEventListener('pointerup', onUp);
+            });
+        };
+
+        function resetTools() {
+            isEraser = false; isBucket = false; isEyedropper = false; isLasso = false;
+            document.getElementById('btnEraser').classList.remove('active');
+            document.getElementById('btnBucket').classList.remove('active');
+            document.getElementById('btnEyedropper').classList.remove('active');
+            document.getElementById('btnLasso').classList.remove('active');
+            if(lassoPath.length > 0) {
+                lassoPath = [];
+                previewCtx.clearRect(0,0,cWidth,cHeight);
+                drawRulerGuides();
+            }
+        }
+
+        document.getElementById('btnEraser').onclick = function() { resetTools(); isEraser = true; this.classList.add('active'); };
+        document.getElementById('btnBucket').onclick = function() { resetTools(); isBucket = true; this.classList.add('active'); };
+        document.getElementById('btnEyedropper').onclick = function() { resetTools(); isEyedropper = true; this.classList.add('active'); };
+  
+
+      
+
+        document.getElementById('btnAddLayer').onclick = () => addLayer();
+function moveLayerUp(i) {
+    if (i >= layers.length - 1) return; 
+    const temp = layers[i];
+    layers[i] = layers[i+1];
+    layers[i+1] = temp;
+    updateLayerDOMOrder();
+    
+    if (activeLayerIndex === i) activeLayerIndex = i + 1;
+    else if (activeLayerIndex === i + 1) activeLayerIndex = i;
+    renderLayerUI(); drawOnionSkin();
+}
+
+function moveLayerDown(i) {
+    if (i <= 0) return; // No puede bajar del fondo
+    const temp = layers[i];
+    layers[i] = layers[i-1];
+    layers[i-1] = temp;
+    updateLayerDOMOrder();
+    
+    if (activeLayerIndex === i) activeLayerIndex = i - 1;
+    else if (activeLayerIndex === i - 1) activeLayerIndex = i;
+    renderLayerUI(); drawOnionSkin();
+}
+
+function updateLayerDOMOrder() {
+    // Reordena visualmente los canvas en el HTML para respetar la nueva jerarquía
+    layers.forEach(l => {
+        stack.insertBefore(l.canvas, document.getElementById('onion-canvas'));
+    });
+}
+
+function mergeLayerDown(i) {
+    if (i <= 0) return; // No se puede fusionar el fondo hacia abajo
+    saveUndo();
+
+    const topLayer = layers[i];
+    const bottomLayer = layers[i-1];
+
+    // Dibujar la capa de arriba sobre la de abajo
+    bottomLayer.ctx.globalAlpha = topLayer.opacity / 100;
+    bottomLayer.ctx.globalCompositeOperation = topLayer.blendMode === 'normal' || !topLayer.blendMode ? 'source-over' : topLayer.blendMode;
+    bottomLayer.ctx.drawImage(topLayer.canvas, 0, 0);
+
+    // Restaurar los valores del canvas inferior
+    bottomLayer.ctx.globalCompositeOperation = 'source-over';
+    bottomLayer.ctx.globalAlpha = 1.0;
+
+    // Eliminar la capa superior del HTML y del array
+    stack.removeChild(topLayer.canvas);
+    layers.splice(i, 1);
+
+    // Ajustar el índice activo
+    if(activeLayerIndex === i) activeLayerIndex = i - 1;
+    else if(activeLayerIndex > i) activeLayerIndex--;
+
+    renderLayerUI();
+    captureTimelapseFrame();
+}
+
+        function openBrushSettingsModal() {
+            const t = brushTypeEl.value;
+            let currentBase = 'lapiz';
+            let currentSpacing = 35;
+            let currentSize = parseInt(brushSizeEl.value) || 5;
+            let currentOpacity = 100;
+            let currentHardness = 100;
+            let currentShape = 100;
+
+            if (t === 'custom' && activeCustomBrushId) {
+                const brush = savedBrushesArr.find(b => b.id === activeCustomBrushId);
+                if(brush) {
+                    currentBase = brush.base || 'lapiz';
+                    currentSpacing = brush.spacing !== undefined ? brush.spacing : 35;
+                    currentSize = brush.size || currentSize;
+                    currentOpacity = brush.opacity !== undefined ? brush.opacity : 100;
+                    currentHardness = brush.hardness !== undefined ? brush.hardness : 100;
+                    currentShape = brush.shape !== undefined ? brush.shape : 100;
+                }
+            } else if (t !== 'custom') {
+                const validBases = ['lapiz', 'delineado', 'marcador', 'pincel', 'aerografo', 'neon', 'acuarela', 'resaltador'];
+                if(validBases.includes(t)) currentBase = t;
+            }
+
+            // Sincronizar inputs
+            document.getElementById('bsBase').value = currentBase;
+            document.getElementById('bsSize').value = currentSize;
+            document.getElementById('bsOpacity').value = currentOpacity;
+            document.getElementById('bsHardness').value = currentHardness;
+            document.getElementById('bsShape').value = currentShape;
+            document.getElementById('bsSpacing').value = currentSpacing;
+
+            document.getElementById('brush-settings-modal').style.display = 'block';
+            document.getElementById('modal-overlay').style.display = 'block';
+            
+            // Forzar primer dibujado de la vista previa
+            updateBrushPreviewUI();
+        }
+
+        function closeBrushSettingsModal() {
+            document.getElementById('brush-settings-modal').style.display = 'none';
+            document.getElementById('modal-overlay').style.display = 'none';
+        }
+
+        function updateBrushPreviewUI() {
+            // Actualizar textos
+            const size = document.getElementById('bsSize').value;
+            const op = document.getElementById('bsOpacity').value;
+            const hd = document.getElementById('bsHardness').value;
+            const sh = document.getElementById('bsShape').value;
+            const sp = document.getElementById('bsSpacing').value;
+
+            document.getElementById('bsSizeVal').innerText = size;
+            document.getElementById('bsOpacityVal').innerText = op + '%';
+            document.getElementById('bsHardnessVal').innerText = hd + '%';
+            document.getElementById('bsShapeVal').innerText = sh + '%';
+            document.getElementById('bsSpacingVal').innerText = sp + '%';
+
+            drawPreviewStroke();
+        }
+
+        function drawPreviewStroke() {
+            const canvas = document.getElementById('brush-preview');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const size = parseInt(document.getElementById('bsSize').value);
+            const opacity = parseInt(document.getElementById('bsOpacity').value) / 100;
+            const hardness = parseInt(document.getElementById('bsHardness').value);
+            const shape = parseInt(document.getElementById('bsShape').value) / 100;
+            const spacing = parseInt(document.getElementById('bsSpacing').value);
+            const base = document.getElementById('bsBase').value;
+
+            const color = colorPickerEl.value; 
+            
+            
+            ctx.globalAlpha = opacity;
+            const blurAmount = ((100 - hardness) / 100) * (size * 1.5); 
+            ctx.shadowBlur = blurAmount;
+            ctx.shadowColor = color;
+            ctx.fillStyle = color;
+
+            const startX = 30, endX = 250;
+            const dist = endX - startX;
+            const step = Math.max(1, size * (spacing / 100));
+
+            // Dibujar una curva (onda seno) para visualizar mejor el trazo
+            for(let i = 0; i <= dist; i += step) {
+                const cx = startX + i;
+                const cy = 40 + Math.sin(i * 0.05) * 15; 
+
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.scale(1, shape); 
+
+                if (base === 'marcador') ctx.globalAlpha = opacity * 0.4;
+                if (base === 'acuarela') ctx.globalAlpha = opacity * 0.2;
+
+                ctx.beginPath();
+                ctx.arc(0, 0, size/2, 0, Math.PI*2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+    
+           let isShortcutMode=false; 
+    
+           function toggleShortcutMode(){
+            isShortcutMode = !isShortcutMode;
+            const btn = document.getElementById('btnShortcutMode');
+            if(isShortcutMode) { 
+                btn.classList.add('active-tool'); 
+                btn.innerText = "⚡ Atajos (ON)"; 
+            } else { 
+                btn.classList.remove('active-tool'); 
+                btn.innerText = "⚡ Atajos"; 
+                document.getElementById('quick-shortcuts').style.display = 'none'; // Asegurar que se oculten si se apaga el modo
+            }
+        }
+ 
+    
+        function saveCurrentAsNewCustomBrush() {
+            const baseBehavior = document.getElementById('bsBase').value;
+            const sizeVal = parseInt(document.getElementById('bsSize').value);
+            const opacityVal = parseInt(document.getElementById('bsOpacity').value);
+            const hardnessVal = parseInt(document.getElementById('bsHardness').value);
+            const shapeVal = parseInt(document.getElementById('bsShape').value);
+            const spacingVal = parseInt(document.getElementById('bsSpacing').value);
+            
+            const newId = Date.now();
+            let dataUrl = "";
+
+            if (brushTypeEl.value === 'custom' && customBrushImg) {
+                dataUrl = customBrushImg.src;
+            } else {
+                const tCan = document.createElement('canvas');
+                tCan.width = 160; tCan.height = 160;
+                const tCtx = tCan.getContext('2d');
+                tCtx.fillStyle = "black";
+                tCtx.beginPath();
+                tCtx.arc(80, 80, 40, 0, Math.PI*2);
+                tCtx.fill();
+                dataUrl = tCan.toDataURL();
+            }
+
+            const newBrush = {
+                id: newId,
+                src: dataUrl,
+                base: baseBehavior,
+                size: sizeVal,
+                opacity: opacityVal,
+                hardness: hardnessVal,
+                shape: shapeVal,
+                spacing: spacingVal
+            };
+
+            savedBrushesArr.unshift(newBrush);
+
+            try {
+                localStorage.setItem('studioBrushes', JSON.stringify(savedBrushesArr));
+            } catch(e) {
+                alert("¡Límite de memoria alcanzado! Borra algunos pinceles antiguos antes de guardar.");
+                savedBrushesArr.shift();
+                return;
+            }
+
+            // Aplicar el tamaño al slider global para que se aplique de inmediato
+            brushSizeEl.value = sizeVal;
+            document.getElementById('brushSizeVal').innerText = sizeVal;
+
+            closeBrushSettingsModal();
+            selectCustomBrush(newId);
+            renderBrushes();
+        }
+    
+        document.getElementById('btnToggleUI').onclick = () => {
+            const tc = document.getElementById('toolbar-container');
+            const lp = document.getElementById('layer-panel');
+            const tl = document.getElementById('timeline-container');
+            const qs = document.getElementById('quick-shortcuts');
+
+            if (lp.style.display === 'none') {
+                // Mostrar UI Normal
+                lp.style.display = 'block';
+                tc.style.display = 'flex';
+                if (isAnimationMode) tl.style.display = 'flex';
+                qs.style.display = 'none'; // Siempre ocultar atajos cuando vemos la UI normal
+            } else {
+                // Ocultar UI Normal
+                lp.style.display = 'none';
+                tc.style.display = 'none';
+                if (isAnimationMode) tl.style.display = 'none';
+                
+                
+                if (isShortcutMode) {
+                    qs.style.display = 'flex';
+                }
+            }
+        };
+        
+                
+    </script>
+</body>
+</html>
+
